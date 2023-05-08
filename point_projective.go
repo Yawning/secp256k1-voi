@@ -115,6 +115,91 @@ func (v *Point) addComplete(p, q *Point) *Point {
 	return v
 }
 
+// addMixed sets `v = p + (x2, y2, 1)`, and returns `v`.
+func (v *Point) addMixed(p *Point, x2, y2 *field.Element) *Point {
+	// Algorithm 8 from "Complete addition formulas for prime
+	// order elliptic curves" by Renes, Costello, and Batina.
+	//
+	// The formula is mixed in that it assumes the z-coordinate
+	// of the addend (`Z2`) is `1`, meaning that it CAN NOT
+	// handle the addend being the point at infinity.
+	//
+	// The operation costs are `11M + 2m3b + 13a`, though our current
+	// field implmentation lacks a multiply tailored for small
+	// multiples (`m3b`).  This saves `1M + 6a` over `addComplete`.
+	//
+	// If you are looking to use this formula for something else
+	// note that it is specialized for `a = 0`.
+
+	var (
+		t0 = field.NewElement()
+		t1 = field.NewElement()
+		t2 = field.NewElement()
+		t3 = field.NewElement()
+		t4 = field.NewElement()
+
+		x1 = &p.x
+		y1 = &p.y
+		z1 = &p.z
+
+		// To make this alias-safe, allocate these.
+		x3 = field.NewElement()
+		y3 = field.NewElement()
+		z3 = field.NewElement()
+	)
+
+	// t0 := X1 * X2 ; t1 := Y1 * Y2 ; t3 := X2 + Y2 ;
+	t0.Multiply(x1, x2)
+	t1.Multiply(y1, y2)
+	t3.Add(x2, y2)
+
+	// t4 := X1 + Y1 ; t3 := t3 * t4 ; t4 := t0 + t1 ;
+	t4.Add(x1, y1)
+	t3.Multiply(t3, t4)
+	t4.Add(t0, t1)
+
+	// t3 := t3 - t4 ; t4 := Y2 * Z1 ; t4 := t4 + Y1 ;
+	t3.Subtract(t3, t4)
+	t4.Multiply(y2, z1)
+	t4.Add(t4, y1)
+
+	// Y3 := X2 * Z1 ; Y3 := Y3 + X1 ; X3 := t0 + t0 ;
+	y3.Multiply(x2, z1)
+	y3.Add(y3, x1)
+	x3.Add(t0, t0)
+
+	// t0 := X3 + t0 ; t2 := b3 * Z1 ; Z3 := t1 + t2 ;
+	t0.Add(x3, t0)
+	t2.Multiply(feB3, z1)
+	z3.Add(t1, t2)
+
+	// t1 := t1 - t2 ; Y3 := b3 * Y3 ; X3 := t4 * Y3 ;
+	t1.Subtract(t1, t2)
+	y3.Multiply(feB3, y3)
+	x3.Multiply(t4, y3)
+
+	// t2 := t3 * t1 ; X3 := t2 - X3 ; Y3 := Y3 * t0 ;
+	t2.Multiply(t3, t1)
+	x3.Subtract(t2, x3)
+	y3.Multiply(y3, t0)
+
+	// t1 := t1 * Z3 ; Y3 := t1 + Y3 ; t0 := t0 * t3 ;
+	t1.Multiply(t1, z3)
+	y3.Add(t1, y3)
+	t0.Multiply(t0, t3)
+
+	// Z3 := Z3 * t4 ; Z3 := Z3 + t0
+	z3.Multiply(z3, t4)
+	z3.Add(z3, t0)
+
+	// return X3 , Y3 , Z3 ;
+	v.x.Set(x3)
+	v.y.Set(y3)
+	v.z.Set(z3)
+
+	return v
+}
+
 // doubleComplete sets `v = p + p`, and returns `v`.
 func (v *Point) doubleComplete(p *Point) *Point {
 	// Algorithm 9 from "Complete addition formulas for prime

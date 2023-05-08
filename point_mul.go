@@ -83,5 +83,34 @@ func (v *Point) ScalarMultVartime(s *Scalar, p *Point) *Point {
 
 // ScalarBaseMult sets `v = s * G`, and returns `v`.
 func (v *Point) ScalarBaseMult(s *Scalar) *Point {
-	return v.ScalarMult(s, NewGeneratorPoint())
+	tbl := generatorAffineTable
+
+	v.Identity()
+	tableIndex := len(tbl) - 1
+	for _, b := range s.getBytesArray() {
+		tbl[tableIndex].SelectAndAdd(v, uint64(b>>4))
+		tableIndex--
+
+		tbl[tableIndex].SelectAndAdd(v, uint64(b&0xf))
+		tableIndex--
+	}
+
+	return v
+}
+
+// ScalarBaseMultVartime sets `v = s * G`, and returns `v` in variable time.
+func (v *Point) ScalarBaseMultVartime(s *Scalar) *Point {
+	tbl := generatorAffineTable
+
+	v.Identity()
+	tableIndex := len(tbl) - 1
+	for _, b := range s.getBytesArray() {
+		tbl[tableIndex].SelectAndAddVartime(v, uint64(b>>4))
+		tableIndex--
+
+		tbl[tableIndex].SelectAndAddVartime(v, uint64(b&0xf))
+		tableIndex--
+	}
+
+	return v
 }

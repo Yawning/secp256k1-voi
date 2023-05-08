@@ -15,6 +15,7 @@ func TestPoint(t *testing.T) {
 	// Double
 	// Subtract
 	t.Run("ScalarMult", testPointScalarMult)
+	t.Run("ScalarBaseMult", testPointScalarBaseMult)
 	// ScalarBaseMult
 	// ConditionalSelect
 	// Equal
@@ -102,8 +103,10 @@ func testPointScalarMult(t *testing.T) {
 		require.NoError(t, err, "NewPointFromBytes(bUncompressed)")
 
 		aXn := NewIdentityPoint().ScalarMult(xn, a)
+		aXnV := NewIdentityPoint().ScalarMultVartime(xn, a)
 
 		require.EqualValues(t, 1, bExpected.Equal(aXn), "xn * a != b, got %+v", aXn)
+		require.EqualValues(t, 1, bExpected.Equal(aXnV), "xn * a (vartime) != b, got %+v", aXnV)
 	})
 	t.Run("VartimeConsistency", func(t *testing.T) {
 		var s Scalar
@@ -145,13 +148,15 @@ func testPointScalarBaseMult(t *testing.T) {
 	})
 	t.Run("Random100x", func(t *testing.T) {
 		var s Scalar
-		p1, p2, g := NewIdentityPoint(), NewIdentityPoint(), NewGeneratorPoint()
+		p1, p2, pv, g := NewIdentityPoint(), NewIdentityPoint(), NewIdentityPoint(), NewGeneratorPoint()
 		for i := 0; i < 100; i++ {
 			s.MustRandomize()
 			p1.ScalarMult(&s, g)
 			p2.ScalarBaseMult(&s)
+			pv.ScalarBaseMultVartime(&s)
 
 			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * G (slow) != s * G (fast), got %+v %+v", i, p1, p2)
+			require.EqualValues(t, 1, p1.Equal(pv), "[%d]: s * G (slow) != s * G (fastvar), got %+v %+v", i, p1, pv)
 		}
 	})
 }
@@ -174,6 +179,15 @@ func BenchmarkPoint(b *testing.B) {
 			p.Add(p, p)
 		}
 	})
+	b.Run("Add/Mixed", func(b *testing.B) {
+		p, g := NewGeneratorPoint(), NewGeneratorPoint()
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			p.addMixed(p, &g.x, &g.y)
+		}
+	})
 	b.Run("Double", func(b *testing.B) {
 		p := NewGeneratorPoint()
 		b.ReportAllocs()
@@ -193,7 +207,7 @@ func BenchmarkPoint(b *testing.B) {
 			q.ScalarMult(s, q)
 		}
 	})
-	b.Run("ScalarMultVartime", func(b *testing.B) {
+	b.Run("ScalarMult/Vartime", func(b *testing.B) {
 		var s Scalar
 		q := NewGeneratorPoint()
 		b.ReportAllocs()
@@ -205,6 +219,41 @@ func BenchmarkPoint(b *testing.B) {
 			b.StartTimer()
 
 			q.ScalarMultVartime(&s, q)
+		}
+	})
+	b.Run("ScalarBaseMult", func(b *testing.B) {
+		var s Scalar
+		q := NewGeneratorPoint()
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			s.MustRandomize()
+			b.StartTimer()
+
+			q.ScalarBaseMult(&s)
+		}
+	})
+	b.Run("ScalarBaseMult/Vartime", func(b *testing.B) {
+		var s Scalar
+		q := NewGeneratorPoint()
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			s.MustRandomize()
+			b.StartTimer()
+
+			q.ScalarBaseMultVartime(&s)
+		}
+	})
+	b.Run("ScalarBaseMult/GenTable", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			newLargeAffinePointMultTable(NewGeneratorPoint())
 		}
 	})
 }
