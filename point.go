@@ -92,11 +92,16 @@ func (v *Point) Negate(p *Point) *Point {
 func (v *Point) ConditionalSelect(a, b *Point, ctrl uint64) *Point {
 	assertPointsValid(a, b)
 
+	v.uncheckedConditionalSelect(a, b, ctrl)
+	v.isValid = a.isValid && b.isValid
+
+	return v
+}
+
+func (v *Point) uncheckedConditionalSelect(a, b *Point, ctrl uint64) *Point {
 	v.x.ConditionalSelect(&a.x, &b.x, ctrl)
 	v.y.ConditionalSelect(&a.y, &b.y, ctrl)
 	v.z.ConditionalSelect(&a.z, &b.z, ctrl)
-	v.isValid = a.isValid && b.isValid
-
 	return v
 }
 

@@ -1,6 +1,7 @@
 package secp256k1
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,6 +105,55 @@ func testPointScalarMult(t *testing.T) {
 
 		require.EqualValues(t, 1, bExpected.Equal(aXn), "xn * a != b, got %+v", aXn)
 	})
+	t.Run("VartimeConsistency", func(t *testing.T) {
+		var s Scalar
+		p1, p2, g := NewIdentityPoint(), NewIdentityPoint(), NewGeneratorPoint()
+		for i := 0; i < 100; i++ {
+			s.MustRandomize()
+			p1.ScalarMult(&s, g)
+			p2.ScalarMultVartime(&s, g)
+
+			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * G (slow) != s * G (fast), got %+v %+v", i, p1, p2)
+		}
+	})
+}
+
+func testPointScalarBaseMult(t *testing.T) {
+	t.Run("0 * G", func(t *testing.T) {
+		s := NewScalar()
+
+		q := NewIdentityPoint().ScalarBaseMult(s)
+
+		require.EqualValues(t, 1, q.IsIdentity(), "0 * G != id, got %+v", q)
+	})
+	t.Run("1 * G", func(t *testing.T) {
+		g := NewGeneratorPoint()
+		s := NewScalar().One()
+
+		q := NewIdentityPoint().ScalarBaseMult(s)
+
+		require.EqualValues(t, 1, q.Equal(g), "1 * G != G, got %+v", q)
+	})
+	t.Run("2 * G", func(t *testing.T) {
+		g := NewGeneratorPoint()
+		s := newScalarFromSaturated(0, 0, 0, 2)
+
+		q := NewIdentityPoint().ScalarBaseMult(s)
+		g.Double(g)
+
+		require.EqualValues(t, 1, q.Equal(g), "2 * G != G + G, got %+v", q)
+	})
+	t.Run("Random100x", func(t *testing.T) {
+		var s Scalar
+		p1, p2, g := NewIdentityPoint(), NewIdentityPoint(), NewGeneratorPoint()
+		for i := 0; i < 100; i++ {
+			s.MustRandomize()
+			p1.ScalarMult(&s, g)
+			p2.ScalarBaseMult(&s)
+
+			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * G (slow) != s * G (fast), got %+v %+v", i, p1, p2)
+		}
+	})
 }
 
 func requirePointDeepEquals(t *testing.T, expected, actual *Point, descr string) {
@@ -143,4 +193,30 @@ func BenchmarkPoint(b *testing.B) {
 			q.ScalarMult(s, q)
 		}
 	})
+	b.Run("ScalarMultVartime", func(b *testing.B) {
+		var s Scalar
+		q := NewGeneratorPoint()
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			s.MustRandomize()
+			b.StartTimer()
+
+			q.ScalarMultVartime(&s, q)
+		}
+	})
+}
+
+func (s *Scalar) MustRandomize() {
+	var b [32]byte
+	for {
+		if _, err := rand.Read(b[:]); err != nil {
+			panic("scalar: entropy source failure")
+		}
+		if _, err := s.SetCanonicalBytes(&b); err == nil {
+			return
+		}
+	}
 }

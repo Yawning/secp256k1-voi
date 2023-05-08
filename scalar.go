@@ -123,16 +123,8 @@ func (s *Scalar) SetCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
 
 // Bytes returns the canonical big-endian encoding of `s`.
 func (s *Scalar) Bytes() []byte {
-	var nm fiat.NonMontgomeryDomainFieldElement
-	fiat.FromMontgomery(&nm, &s.m)
-
-	dst := make([]byte, ScalarSize)
-	binary.BigEndian.PutUint64(dst[0:], nm[3])
-	binary.BigEndian.PutUint64(dst[8:], nm[2])
-	binary.BigEndian.PutUint64(dst[16:], nm[1])
-	binary.BigEndian.PutUint64(dst[24:], nm[0])
-
-	return dst
+	b := s.getBytesArray()
+	return b[:]
 }
 
 // ConditionalSelect sets `s = a` iff `ctrl == 0`, `s = b` otherwise,
@@ -200,26 +192,17 @@ func (s *Scalar) pow2k(a *Scalar, k uint) *Scalar {
 	return s
 }
 
-// bits returns the bit representation of `s` in LSB->MSB order.
-func (s *Scalar) bits() [ScalarSize * 8]byte {
+// getBytesArray returns the canonical big-endian encoding of `s`, by
+// value (saves an alloc when escape analysis screws up).
+func (s *Scalar) getBytesArray() [ScalarSize]byte {
 	var nm fiat.NonMontgomeryDomainFieldElement
 	fiat.FromMontgomery(&nm, &s.m)
 
-	// XXX: This is gross, and I'm probably overcomplicating things,
-	// and MSB->LSB order is probably easier to work with, and I might
-	// as well produce output that is sized for the window used.
-
-	var dst [ScalarSize * 8]byte
-	for il, l := range nm { // For each 64-bit limb, least to most significant
-		lOff := il * 64
-		for ib := 0; ib < 8; ib++ { // For each 8-bit bytes, least to most significant
-			off := lOff + ib*8
-			b := byte(l >> (ib * 8))
-			for i := 0; i < 8; i++ { // For each bit, least to most significant
-				dst[off+i] = (b >> (i & 7)) & 1
-			}
-		}
-	}
+	var dst [ScalarSize]byte
+	binary.BigEndian.PutUint64(dst[0:], nm[3])
+	binary.BigEndian.PutUint64(dst[8:], nm[2])
+	binary.BigEndian.PutUint64(dst[16:], nm[1])
+	binary.BigEndian.PutUint64(dst[24:], nm[0])
 
 	return dst
 }
