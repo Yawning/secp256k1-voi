@@ -91,13 +91,6 @@ func (fe *Element) Pow2k(a *Element, k uint) *Element {
 	return fe
 }
 
-// Invert sets `fe = 1/a` and returns `fe`.  If `a == 0`, `fe` is set to
-// `0`.
-func (fe *Element) Invert(a *Element) *Element {
-	fiat.Invert(&fe.m, &a.m)
-	return fe
-}
-
 // Set sets `fe = a` and returns `fe`.
 func (fe *Element) Set(a *Element) *Element {
 	copy(fe.m[:], a.m[:])
