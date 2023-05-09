@@ -24,3 +24,9 @@ rm -f field_sqrt.acc ../field/field_sqrt.go
 addchain search "28948022309329048855892746252171976963317496166410141009864396001977208667916" > field_sqrt.acc
 addchain gen -tmpl field_sqrt.tmpl field_sqrt.acc > ../field/field_sqrt.go
 gofumpt -w ../field/field_sqrt.go
+
+# secp256k1 scalar inversion
+rm -f scalar_invert.acc
+addchain search "2^256 - 432420386565659656852420866394968145599 - 2" > scalar_invert.acc
+addchain gen -tmpl scalar_invert.tmpl scalar_invert.acc > ../../scalar_invert.go
+gofumpt -w ../../scalar_invert.go

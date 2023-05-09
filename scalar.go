@@ -81,13 +81,6 @@ func (s *Scalar) Square(a *Scalar) *Scalar {
 	return s
 }
 
-// Invert sets `s = 1/a` and returns `s`.  If `a == 0`, `s` is set to
-// `0`.
-func (s *Scalar) Invert(a *Scalar) *Scalar {
-	fiat.Invert(&s.m, &a.m)
-	return s
-}
-
 // Set sets `s = a` and returns `s`.
 func (s *Scalar) Set(a *Scalar) *Scalar {
 	copy(s.m[:], a.m[:])
