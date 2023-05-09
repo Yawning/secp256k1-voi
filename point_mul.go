@@ -21,7 +21,7 @@ func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 	tbl := newProjectivePointMultTable(p)
 
 	v.Identity()
-	for i, b := range s.getBytesArray() {
+	for i, b := range s.Bytes() {
 		// Skip the very first set of doubles, as v is guaranteed to be
 		// the point at infinity.
 		if i != 0 {
@@ -60,7 +60,7 @@ func (v *Point) ScalarMultVartime(s *Scalar, p *Point) *Point {
 	tbl := newProjectivePointMultTable(p)
 
 	v.Identity()
-	for i, b := range s.getBytesArray() {
+	for i, b := range s.Bytes() {
 		if i != 0 {
 			v.doubleComplete(v)
 			v.doubleComplete(v)
@@ -87,7 +87,7 @@ func (v *Point) ScalarBaseMult(s *Scalar) *Point {
 
 	v.Identity()
 	tableIndex := len(tbl) - 1
-	for _, b := range s.getBytesArray() {
+	for _, b := range s.Bytes() {
 		tbl[tableIndex].SelectAndAdd(v, uint64(b>>4))
 		tableIndex--
 
@@ -104,7 +104,7 @@ func (v *Point) ScalarBaseMultVartime(s *Scalar) *Point {
 
 	v.Identity()
 	tableIndex := len(tbl) - 1
-	for _, b := range s.getBytesArray() {
+	for _, b := range s.Bytes() {
 		tbl[tableIndex].SelectAndAddVartime(v, uint64(b>>4))
 		tableIndex--
 

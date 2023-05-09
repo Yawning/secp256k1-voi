@@ -123,8 +123,21 @@ func (s *Scalar) SetCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
 
 // Bytes returns the canonical big-endian encoding of `s`.
 func (s *Scalar) Bytes() []byte {
-	b := s.getBytesArray()
-	return b[:]
+	// Blah blah blah outline blah escape analysis blah.
+	var dst [ScalarSize]byte
+	return s.getBytes(&dst)
+}
+
+func (s *Scalar) getBytes(dst *[ScalarSize]byte) []byte {
+	var nm fiat.NonMontgomeryDomainFieldElement
+	fiat.FromMontgomery(&nm, &s.m)
+
+	binary.BigEndian.PutUint64(dst[0:], nm[3])
+	binary.BigEndian.PutUint64(dst[8:], nm[2])
+	binary.BigEndian.PutUint64(dst[16:], nm[1])
+	binary.BigEndian.PutUint64(dst[24:], nm[0])
+
+	return dst[:]
 }
 
 // ConditionalSelect sets `s = a` iff `ctrl == 0`, `s = b` otherwise,
@@ -190,21 +203,6 @@ func (s *Scalar) pow2k(a *Scalar, k uint) *Scalar {
 	}
 
 	return s
-}
-
-// getBytesArray returns the canonical big-endian encoding of `s`, by
-// value (saves an alloc when escape analysis screws up).
-func (s *Scalar) getBytesArray() [ScalarSize]byte {
-	var nm fiat.NonMontgomeryDomainFieldElement
-	fiat.FromMontgomery(&nm, &s.m)
-
-	var dst [ScalarSize]byte
-	binary.BigEndian.PutUint64(dst[0:], nm[3])
-	binary.BigEndian.PutUint64(dst[8:], nm[2])
-	binary.BigEndian.PutUint64(dst[16:], nm[1])
-	binary.BigEndian.PutUint64(dst[24:], nm[0])
-
-	return dst
 }
 
 // NewScalar returns a new zero Scalar.

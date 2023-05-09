@@ -21,16 +21,20 @@ import (
 
 const (
 	// CompressedPointSize is the size of a compressed point in bytes,
-	// in the SEC 1 encoding (`Y_EvenOrOdd | X`).
+	// in the SEC 1, Version 2.0, Section 2.3.3 encoding (`Y_EvenOrOdd | X`).
 	CompressedPointSize = 33
 
 	// PointSize is the size of an uncompressed point in bytes in the
-	// SEC 1 encoding (`0x04 | X | Y`).
+	// SEC 1, Version 2.0, Section 2.3.3 encoding (`0x04 | X | Y`).
 	PointSize = 65
 
 	// IdentityPointSize is the size of the point at infinity in bytes,
-	// in the SEC 1 encoding (`0x00`).
+	// in the SEC 1, Version 2.0, Section 2.3.3 encoding (`0x00`).
 	IdentityPointSize = 1
+
+	// CoordSize is the size of a coordinate in bytes, in the SEC 1,
+	// Version 2.0, Section 2.3.5 encoding.
+	CoordSize = 32
 
 	prefixIdentity       = 0x00
 	prefixCompressedEven = 0x02
@@ -41,30 +45,43 @@ const (
 // feB is the constant `b`, part of the curve equation.
 var feB = field.NewElementFromSaturated(0, 0, 0, 7)
 
-// UncompressedBytes returns the SEC 1 uncompressed encoding of `v`.
+// UncompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
+// uncompressed encoding of `v`.
 func (v *Point) UncompressedBytes() []byte {
+	// Blah blah blah outline blah escape analysis blah.
+	var dst [PointSize]byte
+	return v.getUncompressedBytes(&dst)
+}
+
+func (v *Point) getUncompressedBytes(dst *[PointSize]byte) []byte {
 	assertPointsValid(v)
 
 	if v.IsIdentity() == 1 {
-		return []byte{prefixIdentity}
+		return append(dst[:0], prefixIdentity)
 	}
 
 	scaled := newRcvr().rescale(v)
 
-	dst := make([]byte, 0, PointSize)
-	dst = append(dst, prefixUncompressed)
-	dst = append(dst, scaled.x.Bytes()...)
-	dst = append(dst, scaled.y.Bytes()...)
+	buf := append(dst[:0], prefixUncompressed)
+	buf = append(buf, scaled.x.Bytes()...)
+	buf = append(buf, scaled.y.Bytes()...)
 
-	return dst
+	return buf
 }
 
-// CompressedBytes returns the SEC 1 compressed encoding of `v`.
+// CompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
+// compressed encoding of `v`.
 func (v *Point) CompressedBytes() []byte {
+	// Blah blah blah outline blah escape analysis blah.
+	var dst [CompressedPointSize]byte
+	return v.getCompressedBytes(&dst)
+}
+
+func (v *Point) getCompressedBytes(dst *[CompressedPointSize]byte) []byte {
 	assertPointsValid(v)
 
 	if v.IsIdentity() == 1 {
-		return []byte{prefixIdentity}
+		return append(dst[:0], prefixIdentity)
 	}
 
 	scaled := newRcvr().rescale(v)
@@ -75,16 +92,35 @@ func (v *Point) CompressedBytes() []byte {
 		prefixCompressedEven,
 	)
 
-	dst := make([]byte, 0, CompressedPointSize)
-	dst = append(dst, byte(y))
-	dst = append(dst, scaled.x.Bytes()...)
+	buf := append(dst[:0], byte(y))
+	buf = append(buf, scaled.x.Bytes()...)
 
-	return dst
+	return buf
 }
 
-// SetBytes sets `p = src`, where `src` is a valid SEC 1 encoding
-// of the point.  If `src` is not a SEC 1 encoding of `p`, SetBytes
-// returns nil and an error, and the receiver is unchanged.
+// XBytes returns the SEC 1, Version 2.0, Section 2.3.5 encoding of the
+// x-coordinate, or an error if the point is the point at infinity.
+func (v *Point) XBytes() ([]byte, error) {
+	assertPointsValid(v)
+
+	if v.IsIdentity() == 1 {
+		return nil, errors.New("secp256k1: point is the point at infinity")
+	}
+
+	// Blah blah blah outline blah escape analysis blah.
+	var dst [CoordSize]byte
+	return v.getXBytes(&dst)
+}
+
+func (v *Point) getXBytes(dst *[CoordSize]byte) ([]byte, error) {
+	scaled := newRcvr().rescale(v)
+	return append(dst[:0], scaled.x.Bytes()...), nil
+}
+
+// SetBytes sets `p = src`, where `src` is a valid SEC 1, Version 2.0,
+// Section 2.3.3 encoding of the point.  If `src` is not a valid
+// encoding of `p`, SetBytes returns nil and an error, and the
+// receiver is unchanged.
 func (v *Point) SetBytes(src []byte) (*Point, error) {
 	switch len(src) {
 	case IdentityPointSize:

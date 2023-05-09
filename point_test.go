@@ -256,6 +256,24 @@ func BenchmarkPoint(b *testing.B) {
 			newLargeAffinePointMultTable(NewGeneratorPoint())
 		}
 	})
+	b.Run("s11n/UncompressedBytes", func(b *testing.B) {
+		p := NewGeneratorPoint()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = p.UncompressedBytes()
+		}
+	})
+	b.Run("s11n/CompressedBytes", func(b *testing.B) {
+		p := NewGeneratorPoint()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = p.CompressedBytes()
+		}
+	})
 }
 
 func (s *Scalar) MustRandomize() {

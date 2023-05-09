@@ -120,16 +120,21 @@ func (fe *Element) SetCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
 
 // Bytes returns the canonical big-endian encoding of `fe`.
 func (fe *Element) Bytes() []byte {
+	// Blah blah blah outline blah escape analysis blah.
+	var dst [ElementSize]byte
+	return fe.getBytes(&dst)
+}
+
+func (fe *Element) getBytes(dst *[ElementSize]byte) []byte {
 	var nm fiat.NonMontgomeryDomainFieldElement
 	fiat.FromMontgomery(&nm, &fe.m)
 
-	dst := make([]byte, ElementSize)
 	binary.BigEndian.PutUint64(dst[0:], nm[3])
 	binary.BigEndian.PutUint64(dst[8:], nm[2])
 	binary.BigEndian.PutUint64(dst[16:], nm[1])
 	binary.BigEndian.PutUint64(dst[24:], nm[0])
 
-	return dst
+	return dst[:]
 }
 
 // ConditionalSelect sets `fe = a` iff `ctrl == 0`, `fe = b` otherwise,
