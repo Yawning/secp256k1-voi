@@ -44,8 +44,8 @@ func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 	return v
 }
 
-// ScalarMultVartime sets `v = s * p`, and returns `v` in variable time.
-func (v *Point) ScalarMultVartime(s *Scalar, p *Point) *Point {
+// scalarMultVartime sets `v = s * p`, and returns `v` in variable time.
+func (v *Point) scalarMultVartime(s *Scalar, p *Point) *Point {
 	// TODO/perf: There's lots of different ways to improve on this, but
 	// even the trival change to a vartime table lookup + add saves ~14%.
 	//
@@ -81,7 +81,8 @@ func (v *Point) ScalarMultVartime(s *Scalar, p *Point) *Point {
 	return v
 }
 
-// ScalarBaseMult sets `v = s * G`, and returns `v`.
+// ScalarBaseMult sets `v = s * G`, and returns `v`, where `G` is the
+// generator.
 func (v *Point) ScalarBaseMult(s *Scalar) *Point {
 	tbl := generatorAffineTable
 
@@ -98,8 +99,8 @@ func (v *Point) ScalarBaseMult(s *Scalar) *Point {
 	return v
 }
 
-// ScalarBaseMultVartime sets `v = s * G`, and returns `v` in variable time.
-func (v *Point) ScalarBaseMultVartime(s *Scalar) *Point {
+// scalarBaseMultVartime sets `v = s * G`, and returns `v` in variable time.
+func (v *Point) scalarBaseMultVartime(s *Scalar) *Point {
 	tbl := generatorAffineTable
 
 	v.Identity()
@@ -113,4 +114,18 @@ func (v *Point) ScalarBaseMultVartime(s *Scalar) *Point {
 	}
 
 	return v
+}
+
+// DoubleScalarMultBasepointVartime sets `v = u1 * G + u2 * P`, and returns
+// `v` in variable time, where `G` is the generator.
+func (v *Point) DoubleScalarMultBasepointVartime(u1, u2 *Scalar, p *Point) *Point {
+	// To the best of my knowledge, doing things this way is faster than
+	// Shamir-Strauss, given our scalar-basepoint multiply implementation,
+	// especially if the variable-base multiply is fully optimized (TBD).
+	//
+	// This routine is the most performance critical as it is the core
+	// of ECDSA verfication.
+	u1g := newRcvr().scalarBaseMultVartime(u1)
+	u2p := newRcvr().scalarMultVartime(u2, p)
+	return v.Add(u1g, u2p)
 }

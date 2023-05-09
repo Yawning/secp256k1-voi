@@ -103,7 +103,7 @@ func testPointScalarMult(t *testing.T) {
 		require.NoError(t, err, "NewPointFromBytes(bUncompressed)")
 
 		aXn := NewIdentityPoint().ScalarMult(xn, a)
-		aXnV := NewIdentityPoint().ScalarMultVartime(xn, a)
+		aXnV := NewIdentityPoint().scalarMultVartime(xn, a)
 
 		require.EqualValues(t, 1, bExpected.Equal(aXn), "xn * a != b, got %+v", aXn)
 		require.EqualValues(t, 1, bExpected.Equal(aXnV), "xn * a (vartime) != b, got %+v", aXnV)
@@ -114,7 +114,7 @@ func testPointScalarMult(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			s.MustRandomize()
 			p1.ScalarMult(&s, g)
-			p2.ScalarMultVartime(&s, g)
+			p2.scalarMultVartime(&s, g)
 
 			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * G (slow) != s * G (fast), got %+v %+v", i, p1, p2)
 		}
@@ -146,14 +146,14 @@ func testPointScalarBaseMult(t *testing.T) {
 
 		require.EqualValues(t, 1, q.Equal(g), "2 * G != G + G, got %+v", q)
 	})
-	t.Run("Random100x", func(t *testing.T) {
+	t.Run("Consistency", func(t *testing.T) {
 		var s Scalar
 		p1, p2, pv, g := NewIdentityPoint(), NewIdentityPoint(), NewIdentityPoint(), NewGeneratorPoint()
 		for i := 0; i < 100; i++ {
 			s.MustRandomize()
 			p1.ScalarMult(&s, g)
 			p2.ScalarBaseMult(&s)
-			pv.ScalarBaseMultVartime(&s)
+			pv.scalarBaseMultVartime(&s)
 
 			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * G (slow) != s * G (fast), got %+v %+v", i, p1, p2)
 			require.EqualValues(t, 1, p1.Equal(pv), "[%d]: s * G (slow) != s * G (fastvar), got %+v %+v", i, p1, pv)
@@ -218,7 +218,7 @@ func BenchmarkPoint(b *testing.B) {
 			s.MustRandomize()
 			b.StartTimer()
 
-			q.ScalarMultVartime(&s, q)
+			q.scalarMultVartime(&s, q)
 		}
 	})
 	b.Run("ScalarBaseMult", func(b *testing.B) {
@@ -246,7 +246,7 @@ func BenchmarkPoint(b *testing.B) {
 			s.MustRandomize()
 			b.StartTimer()
 
-			q.ScalarBaseMultVartime(&s)
+			q.scalarBaseMultVartime(&s)
 		}
 	})
 	b.Run("ScalarBaseMult/GenTable", func(b *testing.B) {
@@ -254,6 +254,21 @@ func BenchmarkPoint(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			newLargeAffinePointMultTable(NewGeneratorPoint())
+		}
+	})
+	b.Run("DoubleScalarMultBasepointVartime", func(b *testing.B) {
+		var s1, s2 Scalar
+		q := NewGeneratorPoint()
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			s1.MustRandomize()
+			s2.MustRandomize()
+			b.StartTimer()
+
+			q.DoubleScalarMultBasepointVartime(&s1, &s2, q)
 		}
 	})
 	b.Run("s11n/UncompressedBytes", func(b *testing.B) {
