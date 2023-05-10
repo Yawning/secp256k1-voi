@@ -55,7 +55,7 @@ BenchmarkPoint/s11n/CompressedBytes-16                     	  219763	      5611 
 ```
 
 "It's alright".  `dcrd/dcrec/secp256k1` is faster (back of the envelope
-performance for `u1 * G + U2 * P` is approx 84 us on my system), but
+performance for `u1 * G + u2 * P` is approx 84 us on my system), but
 that implementation does not have any constant time curve operations,
 and the scalar multiply uses a lot more optimization techniques.
 

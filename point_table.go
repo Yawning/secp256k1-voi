@@ -5,7 +5,7 @@ import (
 	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
 )
 
-// TODO: Do this on demand, or hard-code it.  It takes about 14 ms on
+// TODO: Do this on demand, or hard-code it.  It takes about 5.60ms on
 // my development system to do the generation.
 var generatorAffineTable = newLargeAffinePointMultTable(NewGeneratorPoint())
 
@@ -114,6 +114,9 @@ func (tbl *affinePointMultTable) SelectAndAddVartime(sum *Point, idx uint64) *Po
 // of memory.
 func newLargeAffinePointMultTable(p *Point) *[ScalarSize * 2]affinePointMultTable {
 	assertPointsValid(p)
+	if p.IsIdentity() != 0 {
+		panic("secp256k1: large mult table for identity")
+	}
 
 	// base = p, rescaled so that Z = 1.
 	base := NewPointFrom(p)
@@ -123,7 +126,7 @@ func newLargeAffinePointMultTable(p *Point) *[ScalarSize * 2]affinePointMultTabl
 
 	tbl := new([ScalarSize * 2]affinePointMultTable)
 	for i := 0; i < ScalarSize*2; i++ {
-		// base.z == 1, from the rescales.
+		// base.z == 1, from the rescale(s).
 		tbl[i][0].x.Set(&base.x)
 		tbl[i][0].y.Set(&base.y)
 
