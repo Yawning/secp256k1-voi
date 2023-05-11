@@ -3,6 +3,7 @@ package secp256k1
 import (
 	"crypto/subtle"
 	"errors"
+	"fmt"
 
 	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
 	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
@@ -24,9 +25,10 @@ const (
 	// in the SEC 1, Version 2.0, Section 2.3.3 encoding (`Y_EvenOrOdd | X`).
 	CompressedPointSize = 33
 
-	// PointSize is the size of an uncompressed point in bytes in the
-	// SEC 1, Version 2.0, Section 2.3.3 encoding (`0x04 | X | Y`).
-	PointSize = 65
+	// UncompressedPointSize is the size of an uncompressed point in
+	// bytes in the SEC 1, Version 2.0, Section 2.3.3 encoding
+	// (`0x04 | X | Y`).
+	UncompressedPointSize = 65
 
 	// IdentityPointSize is the size of the point at infinity in bytes,
 	// in the SEC 1, Version 2.0, Section 2.3.3 encoding (`0x00`).
@@ -46,17 +48,17 @@ const (
 var feB = field.NewElementFromSaturated(0, 0, 0, 7)
 
 // UncompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
-// uncompressed encoding of `v`.
+// uncompressed or infinity encoding of `v`.
 func (v *Point) UncompressedBytes() []byte {
 	// Blah blah blah outline blah escape analysis blah.
-	var dst [PointSize]byte
+	var dst [UncompressedPointSize]byte
 	return v.getUncompressedBytes(&dst)
 }
 
-func (v *Point) getUncompressedBytes(dst *[PointSize]byte) []byte {
+func (v *Point) getUncompressedBytes(dst *[UncompressedPointSize]byte) []byte {
 	assertPointsValid(v)
 
-	if v.IsIdentity() == 1 {
+	if v.IsIdentity() != 0 {
 		return append(dst[:0], prefixIdentity)
 	}
 
@@ -70,7 +72,7 @@ func (v *Point) getUncompressedBytes(dst *[PointSize]byte) []byte {
 }
 
 // CompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
-// compressed encoding of `v`.
+// compressed or infinity encoding of `v`.
 func (v *Point) CompressedBytes() []byte {
 	// Blah blah blah outline blah escape analysis blah.
 	var dst [CompressedPointSize]byte
@@ -80,7 +82,7 @@ func (v *Point) CompressedBytes() []byte {
 func (v *Point) getCompressedBytes(dst *[CompressedPointSize]byte) []byte {
 	assertPointsValid(v)
 
-	if v.IsIdentity() == 1 {
+	if v.IsIdentity() != 0 {
 		return append(dst[:0], prefixIdentity)
 	}
 
@@ -103,7 +105,7 @@ func (v *Point) getCompressedBytes(dst *[CompressedPointSize]byte) []byte {
 func (v *Point) XBytes() ([]byte, error) {
 	assertPointsValid(v)
 
-	if v.IsIdentity() == 1 {
+	if v.IsIdentity() != 0 {
 		return nil, errors.New("secp256k1: point is the point at infinity")
 	}
 
@@ -113,75 +115,101 @@ func (v *Point) XBytes() ([]byte, error) {
 }
 
 func (v *Point) getXBytes(dst *[CoordSize]byte) ([]byte, error) {
-	scaled := newRcvr().rescale(v)
+	scaled := newRcvr().rescale(v) // XXX/perf: Don't need to rescale Y.
 	return append(dst[:0], scaled.x.Bytes()...), nil
 }
 
+// SetCompressedBytes sets `p = src`, where `src` is a valid SEC 1,
+// Verson 2.0, Section 2.3.3 compressed encoding of a point.  If `src`
+// is not a valid compressed encodiong of a point, SetCompressedBytes
+// returns nil and an error, and the receiver is unchanged.
+func (v *Point) SetCompressedBytes(src []byte) (*Point, error) {
+	if len(src) != CompressedPointSize {
+		return nil, errors.New("secp256k1: incorrectly sized compressed point")
+	}
+
+	switch src[0] {
+	case prefixCompressedOdd:
+	case prefixCompressedEven:
+	default:
+		return nil, fmt.Errorf("secp256k1: invalid encoded point prefix: '%v'", src[0])
+	}
+
+	xBytes := (*[field.ElementSize]byte)(src[1:33])
+	x, err := field.NewElementFromCanonicalBytes(xBytes)
+	if err != nil {
+		return nil, fmt.Errorf("secp256k1: invalid x-coordinate: %w", err)
+	}
+
+	y, hasSqrt := field.NewElement().Sqrt(maybeYY(x))
+	if hasSqrt != 1 {
+		return nil, errors.New("secp256k1: point not on curve")
+	}
+
+	yNeg := field.NewElement().Negate(y)
+	tagEq := subtle.ConstantTimeByteEq(byte(y.IsOdd()), src[0]&1)
+
+	v.x.Set(x)
+	v.y.ConditionalSelect(yNeg, y, helpers.Uint64IsNonzero(uint64(tagEq)))
+	v.z.One()
+	v.isValid = true
+
+	return v, nil
+}
+
+// SetUncompressedBytes sets `p = src`, where `src` is a valid SEC 1,
+// Verson 2.0, Section 2.3.3 uncompressed encoding of a point.  If `src`
+// is not a valid uncompressed encodiong of a point, SetUncompressedBytes
+// returns nil and an error, and the receiver is unchanged.
+func (v *Point) SetUncompressedBytes(src []byte) (*Point, error) {
+	if len(src) != UncompressedPointSize {
+		return nil, errors.New("secp256k1: incorrectly sized uncompressed point")
+	}
+
+	if src[0] != prefixUncompressed {
+		return nil, fmt.Errorf("secp256k1: invalid encoded point prefix: '%v'", src[0])
+	}
+
+	xBytes := (*[field.ElementSize]byte)(src[1:33])
+	x, err := field.NewElementFromCanonicalBytes(xBytes)
+	if err != nil {
+		return nil, fmt.Errorf("secp256k1: invalid x-coordinate: %w", err)
+	}
+	yBytes := (*[field.ElementSize]byte)(src[33:65])
+	y, err := field.NewElementFromCanonicalBytes(yBytes)
+	if err != nil {
+		return nil, fmt.Errorf("secp256k1: invalid y-coordinate: %w", err)
+	}
+
+	// Check the points against the curve equation.
+	if xyOnCurve(x, y) != 1 {
+		return nil, errors.New("secp256k1: point not on curve")
+	}
+
+	v.x.Set(x)
+	v.y.Set(y)
+	v.z.One()
+	v.isValid = true
+
+	return v, nil
+}
+
 // SetBytes sets `p = src`, where `src` is a valid SEC 1, Version 2.0,
-// Section 2.3.3 encoding of the point.  If `src` is not a valid
-// encoding of `p`, SetBytes returns nil and an error, and the
-// receiver is unchanged.
+// Section 2.3.3 encoding of a point.  If `src` is not a valid encoding
+// of `p`, SetBytes returns nil and an error, and the receiver is
+// unchanged.
 func (v *Point) SetBytes(src []byte) (*Point, error) {
 	switch len(src) {
 	case IdentityPointSize:
 		if src[0] != prefixIdentity {
-			break
+			return nil, errors.New("secp256k1: unknown point encoding")
 		}
-
 		v.Identity()
 		return v, nil
 	case CompressedPointSize:
-		if src[0] != prefixCompressedOdd && src[0] != prefixCompressedEven {
-			break
-		}
-
-		xBytes := (*[field.ElementSize]byte)(src[1:33])
-		x, err := field.NewElementFromCanonicalBytes(xBytes)
-		if err != nil {
-			break
-		}
-
-		y, hasSqrt := field.NewElement().Sqrt(maybeYY(x))
-		if hasSqrt != 1 {
-			break
-		}
-
-		yNeg := field.NewElement().Negate(y)
-		tagEq := subtle.ConstantTimeByteEq(byte(y.IsOdd()), src[0]&1)
-
-		v.x.Set(x)
-		v.y.ConditionalSelect(yNeg, y, helpers.Uint64IsNonzero(uint64(tagEq)))
-		v.z.One()
-		v.isValid = true
-
-		return v, nil
-	case PointSize:
-		if src[0] != prefixUncompressed {
-			break
-		}
-
-		xBytes := (*[field.ElementSize]byte)(src[1:33])
-		x, err := field.NewElementFromCanonicalBytes(xBytes)
-		if err != nil {
-			break
-		}
-		yBytes := (*[field.ElementSize]byte)(src[33:65])
-		y, err := field.NewElementFromCanonicalBytes(yBytes)
-		if err != nil {
-			break
-		}
-
-		// Check the points against the curve equation.
-		if maybeYY(x).Equal(maybeXXXPlus7(y)) == 0 {
-			break
-		}
-
-		v.x.Set(x)
-		v.y.Set(y)
-		v.z.One()
-		v.isValid = true
-
-		return v, nil
+		return v.SetCompressedBytes(src)
+	case UncompressedPointSize:
+		return v.SetUncompressedBytes(src)
 	}
 
 	return nil, errors.New("secp256k1: malformed point encoding")
@@ -198,13 +226,13 @@ func NewPointFromBytes(src []byte) (*Point, error) {
 	return p, nil
 }
 
+func xyOnCurve(x, y *field.Element) uint64 {
+	return maybeYY(x).Equal(field.NewElement().Square(y))
+}
+
 func maybeYY(x *field.Element) *field.Element {
 	yy := field.NewElement().Square(x)
 	yy.Multiply(yy, x)
 	yy.Add(yy, feB)
 	return yy
-}
-
-func maybeXXXPlus7(y *field.Element) *field.Element {
-	return field.NewElement().Square(y)
 }

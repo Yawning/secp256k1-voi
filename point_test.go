@@ -16,7 +16,6 @@ func TestPoint(t *testing.T) {
 	// Subtract
 	t.Run("ScalarMult", testPointScalarMult)
 	t.Run("ScalarBaseMult", testPointScalarBaseMult)
-	// ScalarBaseMult
 	// ConditionalSelect
 	// Equal
 }
@@ -110,13 +109,13 @@ func testPointScalarMult(t *testing.T) {
 	})
 	t.Run("VartimeConsistency", func(t *testing.T) {
 		var s Scalar
-		p1, p2, g := NewIdentityPoint(), NewIdentityPoint(), NewGeneratorPoint()
+		p1, p2 := NewGeneratorPoint(), NewGeneratorPoint()
 		for i := 0; i < 100; i++ {
 			s.MustRandomize()
-			p1.ScalarMult(&s, g)
-			p2.scalarMultVartime(&s, g)
+			p1.ScalarMult(&s, p1)
+			p2.scalarMultVartime(&s, p2)
 
-			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * G (slow) != s * G (fast), got %+v %+v", i, p1, p2)
+			require.EqualValues(t, 1, p1.Equal(p2), "[%d]: s * p1 (slow) != s * p2 (fast), got %+v %+v", i, p1, p2)
 		}
 	})
 }
