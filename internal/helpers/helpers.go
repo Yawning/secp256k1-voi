@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"crypto/subtle"
 	"encoding/binary"
 	"encoding/hex"
 	"math/bits"
@@ -9,14 +8,14 @@ import (
 
 // Uint64IsZero returns 1 iff `u == 0`, 0 otherwise, in constant time.
 func Uint64IsZero(u uint64) uint64 {
-	_, borrow := bits.Sub64(0, u, 0)
-	return uint64(subtle.ConstantTimeByteEq(0, uint8(borrow)))
+	isNonzero := Uint64IsNonzero(u)
+	return (^isNonzero) & 1
 }
 
 // Uint64IsNonzero returns 1 iff `u != 0`, 0 otherwise, in constant time.
 func Uint64IsNonzero(u uint64) uint64 {
-	isZero := Uint64IsZero(u)
-	return (^isZero) & 1
+	_, borrow := bits.Sub64(0, u, 0)
+	return borrow
 }
 
 // Uint64Equal returns 1 iff `a == b`, 0 otherwise, in constant time.
