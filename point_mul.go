@@ -49,13 +49,11 @@ func (v *Point) scalarMultVartime(s *Scalar, p *Point) *Point {
 	// TODO/perf: There's lots of different ways to improve on this, but
 	// even the trival change to a vartime table lookup + add saves ~14%.
 	//
-	// - Use w-NAF.
-	// - Use the endomorphism.
-	// - Provide VartimePoint or similar that uses Jacobian coordinates,
-	// and the incomplete formulas, as conversion from projective is
-	// trivial if `Z=1`, and the case where this needs to be fast is
-	// calculating `u1 * G + u2 * Q` where that precondition is
-	// reasonable.
+	// - Use w-NAF + the endomorphism.
+	// - Beg the fiat people for a field multiply specialized for a small
+	// multiple, then use Jacobian coordinates, because doubles in theory
+	// are cheaper that way if multiply-by-small-integer is cheap.  This
+	// will also help the complete formula case (`2m3b`).
 
 	tbl := newProjectivePointMultTable(p)
 
