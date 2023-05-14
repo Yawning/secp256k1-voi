@@ -155,7 +155,7 @@ func (s *Scalar) IsZero() uint64 {
 
 // IsGreaterThanHalfN returns 1 iff `s > n / 2`, where `n` is the order
 // of G, 0 otherwise.
-func (s *Scalar) IsLessThanHalfN() uint64 {
+func (s *Scalar) IsGreaterThanHalfN() uint64 {
 	var nm fiat.NonMontgomeryDomainFieldElement
 	fiat.FromMontgomery(&nm, &s.m)
 
@@ -168,13 +168,9 @@ func (s *Scalar) IsLessThanHalfN() uint64 {
 	diff[2], borrow = bits.Sub64(nm[2], halfNSat[2], borrow)
 	diff[3], borrow = bits.Sub64(nm[3], halfNSat[3], borrow)
 
-	// if borrow == 1, s < n / 2
-	isLess := helpers.Uint64IsNonzero(borrow)
-
+	// if borrow == 1, s < n/2
 	// if borrow == 0 && diff == 0, s = n/2
-	isEqual := helpers.Uint64IsZero(diff[0]|diff[1]|diff[2]|diff[3]) & helpers.Uint64IsZero(borrow)
-
-	return isLess | isEqual
+	return helpers.Uint64IsZero(borrow) & helpers.Uint64IsNonzero(diff[0]|diff[1]|diff[2]|diff[3])
 }
 
 func (s *Scalar) uncheckedSetSaturated(a *[4]uint64) *Scalar {
