@@ -1,7 +1,6 @@
 package secp256k1
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -288,16 +287,4 @@ func BenchmarkPoint(b *testing.B) {
 			_ = p.CompressedBytes()
 		}
 	})
-}
-
-func (s *Scalar) MustRandomize() {
-	var b [32]byte
-	for {
-		if _, err := rand.Read(b[:]); err != nil {
-			panic("scalar: entropy source failure")
-		}
-		if _, err := s.SetCanonicalBytes(&b); err == nil {
-			return
-		}
-	}
 }
