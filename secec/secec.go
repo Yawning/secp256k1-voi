@@ -156,8 +156,8 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 
 // NewPublicKey checks that `key` is valid and returns a PublicKey.
 //
-// For NIST curves, this decodes an encoded point according to SEC 1,
-// Version 2.0, Section 2.3.4. The point at infinity is rejected.
+// This decodes an encoded point according to SEC 1, Version 2.0,
+// Section 2.3.4. The point at infinity is rejected.
 func NewPublicKey(key []byte) (*PublicKey, error) {
 	// Note: crypto/ecdsa's version ONLY supports uncompressed points
 	// but way too much of the shitcoin ecosystem supports compressed,
@@ -167,6 +167,20 @@ func NewPublicKey(key []byte) (*PublicKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("secp256k1/secec: invalid public key: %w", err)
 	}
+	if pt.IsIdentity() != 0 {
+		return nil, errors.New("secp256k1/secec: public key is the point at infinity")
+	}
+
+	return &PublicKey{
+		point:      pt,
+		pointBytes: pt.UncompressedBytes(),
+	}, nil
+}
+
+// NewPublicKeyFromPoint checks that `point` is valid, and returns a PublicKey.
+func NewPublicKeyFromPoint(point *secp256k1.Point) (*PublicKey, error) {
+	// This duplicates code from NewPublicKey to avoid an extra copy.
+	pt := secp256k1.NewPointFrom(point)
 	if pt.IsIdentity() != 0 {
 		return nil, errors.New("secp256k1/secec: public key is the point at infinity")
 	}
