@@ -44,8 +44,12 @@ const (
 	prefixUncompressed   = 0x04
 )
 
-// feB is the constant `b`, part of the curve equation.
-var feB = field.NewElementFromSaturated(0, 0, 0, 7)
+var (
+	// feB is the constant `b`, part of the curve equation.
+	feB = field.NewElementFromSaturated(0, 0, 0, 7)
+
+	errPointNotOnCurve = errors.New("secp256k1: point not on curve")
+)
 
 // UncompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
 // uncompressed or infinity encoding of `v`.
@@ -183,7 +187,7 @@ func (v *Point) SetUncompressedBytes(src []byte) (*Point, error) {
 
 	// Check the points against the curve equation.
 	if xyOnCurve(x, y) != 1 {
-		return nil, errors.New("secp256k1: point not on curve")
+		return nil, errPointNotOnCurve
 	}
 
 	v.x.Set(x)

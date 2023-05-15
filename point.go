@@ -2,6 +2,8 @@
 package secp256k1
 
 import (
+	"fmt"
+
 	"gitlab.com/yawning/secp256k1-voi.git/internal/disalloweq"
 	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
 )
@@ -162,6 +164,31 @@ func NewPointFrom(p *Point) *Point {
 	assertPointsValid(p)
 
 	return newRcvr().Set(p)
+}
+
+// NewPointFromCoords creates a new Point from the big-endian encoded x
+// and y coordinates.
+func NewPointFromCoords(xBytes, yBytes *[CoordSize]byte) (*Point, error) {
+	x, err := field.NewElementFromCanonicalBytes(xBytes)
+	if err != nil {
+		return nil, fmt.Errorf("secp256k1: invalid x-coordinate: %w", err)
+	}
+	y, err := field.NewElementFromCanonicalBytes(yBytes)
+	if err != nil {
+		return nil, fmt.Errorf("secp256k1: invalid y-coordinate: %w", err)
+	}
+
+	if xyOnCurve(x, y) != 1 {
+		return nil, errPointNotOnCurve
+	}
+
+	p := newRcvr()
+	p.x.Set(x)
+	p.y.Set(y)
+	p.z.One()
+	p.isValid = true
+
+	return p, nil
 }
 
 // assertPointsValid ensures that the points have been initialized.
