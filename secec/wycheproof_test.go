@@ -40,6 +40,11 @@ var dhFlagsBadPublic = map[string]bool{
 	"InvalidAsn": true, // encoding/asn1 is on the strict side
 }
 
+var dhFlagsCompressed = map[string]bool{
+	"CompressedPublic": true,
+	"CompressedPoint":  true,
+}
+
 type TestVectors struct {
 	Algorithm  string          `json:"algorithm"`
 	Schema     string          `json:"schema"`
@@ -57,7 +62,7 @@ type Note struct {
 
 type DHTestGroup struct {
 	Type     string       `json:"type"`
-	Curve    string       `json:"string"`
+	Curve    string       `json:"curve"`
 	Encoding string       `json:"encoding"`
 	Tests    []DHTestCase `json:"tests"`
 }
@@ -126,12 +131,22 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 	sharedBytes := helpers.MustBytesFromHex(tc.Shared)
 
 	var (
-		hasFlagBadPublic = len(tc.Shared) == 0
-		mustFail         = tc.Result == "invalid"
-		mayFail          = tc.Result == "acceptable"
+		hasFlagBadPublic  = len(tc.Shared) == 0
+		hasFlagCompressed bool
 	)
 	for _, flag := range tc.Flags {
 		hasFlagBadPublic = hasFlagBadPublic || dhFlagsBadPublic[flag]
+		hasFlagCompressed = hasFlagCompressed || dhFlagsCompressed[flag]
+	}
+	mustFail := tc.Result != "valid"
+
+	// Special case(s):
+	if tg.Type == "EcdhTest" && tg.Curve == "secp256k1" && tg.Encoding == encodingAsn {
+		// - ecdh_secp256k1_test.json (#2) - Compressed point
+		if tc.ID == 2 && tc.Result == "acceptable" && hasFlagCompressed {
+			// We allow this, while some may not.
+			mustFail = false
+		}
 	}
 
 	var (
@@ -155,15 +170,8 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 
 		publicKey, err = ParseASN1PublicKey(publicBytes)
 		if hasFlagBadPublic {
-			switch {
-			case mustFail:
-				require.Error(t, err, "ParseASN1PublicKey: expected bad: %+v", tc.Flags)
-				return
-			case mayFail:
-				if err != nil {
-					return
-				}
-			}
+			require.Error(t, err, "ParseASN1PublicKey: expected bad: %+v", tc.Flags)
+			return
 		}
 		require.NoError(t, err, "ParseASN1PublicKey: %+v", tc.Flags)
 
@@ -184,15 +192,8 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 
 		publicKey, err = publicJWK.ToPublic(t)
 		if hasFlagBadPublic {
-			switch {
-			case mustFail:
-				require.Error(t, err, "JsonWebKey.ToPublic: expected bad: %+v", tc.Flags)
-				return
-			case mayFail:
-				if err != nil {
-					return
-				}
-			}
+			require.Error(t, err, "JsonWebKey.ToPublic: expected bad: %+v", tc.Flags)
+			return
 		}
 		require.NoError(t, err, "JsonWebKey.ToPublic: %+v", tc.Flags)
 

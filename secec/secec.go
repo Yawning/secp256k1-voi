@@ -168,7 +168,7 @@ func NewPublicKey(key []byte) (*PublicKey, error) {
 		return nil, fmt.Errorf("secp256k1/secec: invalid public key: %w", err)
 	}
 	if pt.IsIdentity() != 0 {
-		return nil, errors.New("secp256k1/secec: public key is identity")
+		return nil, errors.New("secp256k1/secec: public key is the point at infinity")
 	}
 
 	return &PublicKey{
