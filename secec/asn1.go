@@ -51,3 +51,21 @@ func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 	encodedPoint := subjectPublicKey.RightAlign()
 	return NewPublicKey(encodedPoint)
 }
+
+func parseASN1Signature(data []byte) ([]byte, []byte, error) {
+	var (
+		inner          cryptobyte.String
+		rBytes, sBytes []byte
+	)
+
+	input := cryptobyte.String(data)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(&rBytes) ||
+		!inner.ReadASN1Integer(&sBytes) ||
+		!inner.Empty() {
+		return nil, nil, errors.New("secp256k1/secec/ecdsa: malformed ASN.1 signature")
+	}
+
+	return rBytes, sBytes, nil
+}

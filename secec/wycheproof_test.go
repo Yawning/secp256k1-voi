@@ -1,6 +1,9 @@
 package secec
 
 import (
+	"crypto"
+	_ "crypto/sha256"
+	_ "crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,32 +21,55 @@ const (
 	encodingAsn       = "asn"
 	encodingWebCrypto = "webcrypto"
 
-	fileEcdhAsn       = "../internal/wycheproof/testdata/ecdh_secp256k1_test.json"
-	fileEcdhWebCrypto = "../internal/wycheproof/testdata/ecdh_secp256k1_webcrypto_test.json"
+	fileEcdhAsn        = "../internal/wycheproof/testdata/ecdh_secp256k1_test.json"
+	fileEcdhWebCrypto  = "../internal/wycheproof/testdata/ecdh_secp256k1_webcrypto_test.json"
+	fileEcdsaAsnSha256 = "../internal/wycheproof/testdata/ecdsa_secp256k1_sha256_test.json"
+	fileEcdsaAsnSha512 = "../internal/wycheproof/testdata/ecdsa_secp256k1_sha512_test.json"
+	fileEcdsaShitcoin  = "../internal/wycheproof/testdata/ecdsa_secp256k1_sha256_bitcoin_test.json"
 
 	jwkKtyEc        = "EC"
 	jwkCrvSecp256k1 = "P-256K"
+
+	typeEcdsaVerify         = "EcdsaVerify"
+	typeEcdsaShitcoinVerify = "EcdsaBitcoinVerify"
+
+	resultValid      = "valid"
+	resultAcceptable = "acceptable"
 )
 
-var dhFlagsBadPublic = map[string]bool{
-	// Failure cases
-	"InvalidCompressedPublic": true,
-	"InvalidCurveAttack":      true,
-	"InvalidEncoding":         true,
-	"InvalidPublic":           true,
-	"WrongCurve":              true,
+var (
+	dhFlagsBadPublic = map[string]bool{
+		// Failure cases
+		"InvalidCompressedPublic": true,
+		"InvalidCurveAttack":      true,
+		"InvalidEncoding":         true,
+		"InvalidPublic":           true,
+		"WrongCurve":              true,
 
-	// Encoding: Treat as failure
-	"UnnamedCurve": true, // ParseASN1PublicKey does not support this
+		// Encoding: Treat as failure
+		"UnnamedCurve": true, // ParseASN1PublicKey does not support this
+		"InvalidAsn":   true, // ParseASN1PublicKey is strict
+	}
 
-	// Encoding: May be accepted, depends on runtime behavior
-	"InvalidAsn": true, // encoding/asn1 is on the strict side
-}
+	dhFlagsCompressed = map[string]bool{
+		"CompressedPublic": true,
+		"CompressedPoint":  true,
+	}
 
-var dhFlagsCompressed = map[string]bool{
-	"CompressedPublic": true,
-	"CompressedPoint":  true,
-}
+	// Pathologically bad ASN.1 signature encodings that should always
+	// fail to parse.
+	sigFlagsRejectEarly = map[string]bool{
+		"BerEncodedSignature":     true,
+		"InvalidTypesInSignature": true,
+		"InvalidEncoding":         true,
+		"MissingZero":             true,
+	}
+
+	sigHash = map[string]crypto.Hash{
+		"SHA-256": crypto.SHA256,
+		"SHA-512": crypto.SHA512,
+	}
+)
 
 type TestVectors struct {
 	Algorithm  string          `json:"algorithm"`
@@ -67,14 +93,13 @@ type DHTestGroup struct {
 	Tests    []DHTestCase `json:"tests"`
 }
 
-type DHTestCase struct {
-	ID      int             `json:"tcId"`
-	Comment string          `json:"comment"`
-	Flags   []string        `json:"flags"`
-	Public  json.RawMessage `json:"public"`
-	Private json.RawMessage `json:"private"`
-	Shared  string          `json:"shared"`
-	Result  string          `json:"result"`
+type SignatureTestGroup struct {
+	Type         string              `json:"type"`
+	PublicKey    SignaturePublicKey  `json:"publicKey"`
+	PublicKeyDER string              `json:"publicKeyDer"`
+	PublicKeyPEM string              `json:"publicKeyPem"`
+	Sha          string              `json:"sha"`
+	Tests        []SignatureTestCase `json:"tests"`
 }
 
 type JsonWebKey struct {
@@ -102,11 +127,15 @@ func (jwk *JsonWebKey) ToPublic(t *testing.T) (*PublicKey, error) {
 	yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
 	require.NoError(t, err, "base64.RawURLEncoding.DecodeString(y)")
 
-	// XXX: Maybe the library should provide a way to construct
-	// a public key from the x and y-coordinate.
-	ptBytes := append([]byte{0x04}, xBytes...)
-	ptBytes = append(ptBytes, yBytes...)
-	return NewPublicKey(ptBytes)
+	pt, err := secp256k1.NewPointFromCoords((*[secp256k1.CoordSize]byte)(xBytes), (*[secp256k1.CoordSize]byte)(yBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	publicKey, err := NewPublicKeyFromPoint(pt)
+	require.NoError(t, err, "NewPublicKeyFromPoint")
+
+	return publicKey, nil
 }
 
 func (jwk *JsonWebKey) ToPrivate(t *testing.T) (*PrivateKey, error) {
@@ -121,6 +150,37 @@ func (jwk *JsonWebKey) ToPrivate(t *testing.T) (*PrivateKey, error) {
 	require.True(t, jwkPriv.PublicKey().Equal(jwkPub))
 
 	return jwkPriv, nil
+}
+
+type SignaturePublicKey struct {
+	Type         string `json:"type"`
+	Curve        string `json:"curve"`
+	KeySize      int    `json:"keySize"`
+	Uncompressed string `json:"uncompressed"`
+	Wx           string `json:"wx"`
+	Wy           string `json:"wy"`
+}
+
+func (spk *SignaturePublicKey) ToPublic(t *testing.T) *PublicKey {
+	require.EqualValues(t, "EcPublicKey", spk.Type)
+	require.EqualValues(t, "secp256k1", spk.Curve)
+	require.EqualValues(t, 256, spk.KeySize)
+
+	uncompressedBytes := helpers.MustBytesFromHex(spk.Uncompressed)
+	publicKey, err := NewPublicKey(uncompressedBytes)
+	require.NoError(t, err, "NewPublicKey")
+
+	return publicKey
+}
+
+type DHTestCase struct {
+	ID      int             `json:"tcId"`
+	Comment string          `json:"comment"`
+	Flags   []string        `json:"flags"`
+	Public  json.RawMessage `json:"public"`
+	Private json.RawMessage `json:"private"`
+	Shared  string          `json:"shared"`
+	Result  string          `json:"result"`
 }
 
 func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
@@ -138,12 +198,12 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 		hasFlagBadPublic = hasFlagBadPublic || dhFlagsBadPublic[flag]
 		hasFlagCompressed = hasFlagCompressed || dhFlagsCompressed[flag]
 	}
-	mustFail := tc.Result != "valid"
+	mustFail := tc.Result != resultValid
 
 	// Special case(s):
 	if tg.Type == "EcdhTest" && tg.Curve == "secp256k1" && tg.Encoding == encodingAsn {
 		// - ecdh_secp256k1_test.json (#2) - Compressed point
-		if tc.ID == 2 && tc.Result == "acceptable" && hasFlagCompressed {
+		if tc.ID == 2 && tc.Result == resultAcceptable && hasFlagCompressed {
 			// We allow this, while some may not.
 			mustFail = false
 		}
@@ -219,6 +279,67 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 	require.EqualValues(t, sharedBytes, derivedShared, "privateKey.ECDH(publicKey)")
 }
 
+type SignatureTestCase struct {
+	ID      int      `json:"tcId"`
+	Comment string   `json:"comment"`
+	Flags   []string `json:"flags"`
+	Msg     string   `json:"msg"`
+	Sig     string   `json:"sig"`
+	Result  string   `json:"result"`
+}
+
+func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *SignatureTestGroup) {
+	if tc.Comment != "" {
+		t.Logf("%s", tc.Comment)
+	}
+
+	hashAlg := sigHash[tg.Sha]
+	msgBytes := helpers.MustBytesFromHex(tc.Msg)
+	sigBytes := helpers.MustBytesFromHex(tc.Sig)
+
+	h := hashAlg.New()
+	_, _ = h.Write(msgBytes)
+	hBytes := h.Sum(nil)
+
+	mustFail := tc.Result != resultValid
+
+	var sigOkOneshot bool
+	switch tg.Type {
+	case typeEcdsaVerify:
+		sigOkOneshot = publicKey.VerifyASN1(hBytes, sigBytes)
+	case typeEcdsaShitcoinVerify:
+		sigOkOneshot = publicKey.VerifyASN1Shitcoin(hBytes, sigBytes)
+	}
+	require.EqualValues(t, !mustFail, sigOkOneshot, "one-shot signature verification: %+v", tc.Flags)
+
+	var hasFlagRejectEarly bool
+	for _, flag := range tc.Flags {
+		hasFlagRejectEarly = hasFlagRejectEarly || sigFlagsRejectEarly[flag]
+	}
+
+	// It would be nice if this could assert that things get rejected
+	// at the correct time and place, but when the rejection happens
+	// is split between the parsing and the actual signature verify.
+	rBytes, sBytes, err := parseASN1Signature(sigBytes)
+	if err != nil {
+		// As a consolation prize, we re-do the signature verification
+		// by calling the internal routines, and assert that totally
+		// screwed up signatures get rejected by the ASN.1 parser.
+		if mustFail {
+			return
+		}
+	}
+	require.False(t, hasFlagRejectEarly, "failed to reject bad/exotic encoding: %+v", tc.Flags)
+	require.NoError(t, err, "parseASN1Signature: %+v", tc.Flags)
+
+	sGtHalfN, err := verify(publicKey, hBytes, rBytes, sBytes)
+	sigOk := err == nil
+	if tg.Type == typeEcdsaShitcoinVerify {
+		sigOk = sigOk && sGtHalfN == 0
+	}
+	require.EqualValues(t, !mustFail, sigOk, "split signature verification: %+v", tc.Flags)
+}
+
 func testWycheproofEcdh(t *testing.T, fn string) {
 	f, err := os.Open(fn)
 	require.NoError(t, err, "os.Open")
@@ -251,7 +372,50 @@ func testWycheproofEcdh(t *testing.T, fn string) {
 	require.Equal(t, testVectors.NumTests, numTests, "unexpected number of tests ran: %d (expected %d)", numTests, testVectors.NumTests)
 }
 
+func testWycheproofEcdsa(t *testing.T, fn string) {
+	f, err := os.Open(fn)
+	require.NoError(t, err, "os.Open")
+	defer f.Close()
+
+	var testVectors TestVectors
+
+	dec := json.NewDecoder(f)
+	err = dec.Decode(&testVectors)
+	require.NoError(t, err, "dec.Decode")
+
+	t.Logf("Wycheproof Version: %s", testVectors.Version)
+
+	var (
+		numTests int
+		groups   []SignatureTestGroup
+	)
+	err = json.Unmarshal(testVectors.TestGroups, &groups)
+	require.NoError(t, err, "json.Unmarshal(testVectors.TestGroups)")
+
+	for i, group := range groups {
+		// Only do this once per group, since s11n is slightly expensive.
+		publicKey := group.PublicKey.ToPublic(t)
+
+		pkDer := helpers.MustBytesFromHex(group.PublicKeyDER)
+		derPublicKey, err := ParseASN1PublicKey(pkDer)
+		require.NoError(t, err, "TestGroup/%d - ParseASN1PublicKey", i)
+		require.True(t, publicKey.Equal(derPublicKey), "TestGroup/%d - publicKey != publicKeyDer")
+
+		for _, testCase := range group.Tests {
+			n := fmt.Sprintf("TestCase/%d", testCase.ID)
+			t.Run(n, func(t *testing.T) {
+				testCase.Run(t, publicKey, &group)
+			})
+			numTests++
+		}
+	}
+	require.Equal(t, testVectors.NumTests, numTests, "unexpected number of tests ran: %d (expected %d)", numTests, testVectors.NumTests)
+}
+
 func TestWycheproof(t *testing.T) {
 	t.Run("ECDH/Asn", func(t *testing.T) { testWycheproofEcdh(t, fileEcdhAsn) })
 	t.Run("ECDH/WebCrypto", func(t *testing.T) { testWycheproofEcdh(t, fileEcdhWebCrypto) })
+	t.Run("ECDSA/Asn/SHA256", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaAsnSha256) })
+	t.Run("ECDSA/Asn/SHA512", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaAsnSha512) })
+	t.Run("ECDSA/Shitcoin", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaShitcoin) })
 }
