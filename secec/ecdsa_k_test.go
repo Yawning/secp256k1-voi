@@ -85,7 +85,7 @@ func testEcdsaK(t *testing.T) {
 		require.EqualValues(t, testKey.Scalar().Bytes(), recoveredD.Bytes(), "d == recoveredD")
 		// ... And now you're sad, because that's the private key.
 	})
-	t.Run("MigigateDebianAndSony", func(t *testing.T) {
+	t.Run("MitigateDebianAndSony", func(t *testing.T) {
 		// Use a different "test" key.
 		testKeyScalar := mustScalarFromHex(t, "000000000000000000000000"+"14B022E892CF8614A44557DB095C928DE9B89970")
 		testKey, err := newPrivateKeyFromScalar(testKeyScalar)
@@ -127,6 +127,7 @@ func testEcdsaK(t *testing.T) {
 		require.NotEqualValues(t, r1.Bytes(), r2.Bytes(), "r1 != r2")
 
 		// Generate another "test" key.
+
 		testKeyScalar2Bytes := sha256.Sum256([]byte("MD_Update(&m,buf,j);  /* purify complains */"))
 		testKeyScalar2, err := secp256k1.NewScalarFromCanonicalBytes(&testKeyScalar2Bytes)
 		require.NoError(t, err, "NewScalarFromCanonicalBytes")
