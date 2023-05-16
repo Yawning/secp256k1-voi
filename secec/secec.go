@@ -13,8 +13,6 @@ import (
 	"gitlab.com/yawning/secp256k1-voi.git/internal/disalloweq"
 )
 
-var errInvalidPrivateKey = errors.New("secp256k1/secec: invalid private key")
-
 // PrivateKey is a secp256k1 private key.
 type PrivateKey struct {
 	_ disalloweq.DisallowEqual
@@ -100,30 +98,12 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 
 // GenerateKey generates a new PrivateKey from `rand`.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
-	// Do rejection sampling to ensure that there is no bias in the
-	// scalar values.  Note that the odds of a single failure are
-	// approximately p = 3.73 * 10^-39, so even requiring a single
-	// retry is unlikely unless the entropy source is broken.
-	var tmp [secp256k1.ScalarSize]byte
-	for i := 0; i < 8; i++ {
-		if _, err := io.ReadFull(rand, tmp[:]); err != nil {
-			return nil, fmt.Errorf("secp256k1/secec: entropy source failure: %w", err)
-		}
-
-		privateKey, err := NewPrivateKey(tmp[:])
-		if err == nil {
-			return privateKey, nil
-		}
-
-		// On error, errInvalidPrivateKey is ok, because that means
-		// the random scalar is out of the range [0,n), but everything
-		// else is otherwise fine.
-		if !errors.Is(err, errInvalidPrivateKey) {
-			return nil, err
-		}
+	s, err := sampleRandomScalar(rand)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.New("secp256k1/secec: failed rejection sampling")
+	return newPrivateKeyFromScalar(s)
 }
 
 // NewPrivateKey checks that `key` is valid and returns a PrivateKey.
@@ -140,9 +120,13 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 
 	s, didReduce := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(key))
 	if didReduce != 0 || s.IsZero() != 0 {
-		return nil, errInvalidPrivateKey
+		return nil, errors.New("secp256k1/secec: invalid private key")
 	}
 
+	return newPrivateKeyFromScalar(s)
+}
+
+func newPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
 	privateKey := &PrivateKey{
 		scalar: s,
 		publicKey: &PublicKey{

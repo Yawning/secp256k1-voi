@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"io"
 
+	"golang.org/x/crypto/sha3"
+
 	"gitlab.com/yawning/secp256k1-voi.git"
 )
+
+const wantedEntropyBytes = 256 / 8
 
 var (
 	errInvalidScalar = errors.New("secp256k1/secec/ecdsa: invalid scalar")
@@ -112,28 +116,31 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 
 	e := hashToScalar(hBytes)
 
-	var r, s *secp256k1.Scalar
+	// While I normally will be content to let idiots compromise
+	// their signing keys, past precident (eg: Sony Computer
+	// Entertainment America, Inc v. Hotz) shows that "idiots"
+	// are also litigatious asshats.
+	//
+	// Instead of RFC 6979 this feeds the private scalar,
+	// 256-bits of entropy, and the message into cSHAKE256.
+
+	fixedRng, err := mitigateDebianAndSony(rand, d, hBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var k, r, s *secp256k1.Scalar
 	for {
 		// 1. Select an ephemeral elliptic curve key pair (k, R) with
 		// R = (xR, yR) associated with the elliptic curve domain parameters
 		// T established during the setup procedure using the key pair
 		// generation primitive specified in Section 3.2.1.
 
-		// TODO: Before enabling the signing, come up with a way to
-		// prevent Sony Computer Entertainment issues.
-		//
-		// While I normally will be content to let idiots compromise
-		// their signing keys, past precident (eg: Sony Computer
-		// Entertainment America, Inc v. Hotz) shows that "idiots"
-		// are also litigatious cunts.
-		panic("XXX: Sony Computer Entertainment")
-
-		ephPriv, err := GenerateKey(rand)
+		k, err = sampleRandomScalar(fixedRng)
 		if err != nil {
 			return nil, nil, fmt.Errorf("secp256k1/secec/ecdsa: failed to generate k: %w", err)
 		}
-		k := ephPriv.scalar
-		R := ephPriv.PublicKey().point
+		R := secp256k1.NewIdentityPoint().ScalarBaseMult(k)
 
 		// 2. Convert the field element xR to an integer xR using the
 		// conversion routine specified in Section 2.3.9.
@@ -258,7 +265,7 @@ func verify(q *PublicKey, hBytes, rBytes, sBytes []byte) (uint64, error) {
 // Note: This also will reduce the resulting scalar such that it is
 // in the range [0, n), which is fine for ECDSA.
 func hashToScalar(hash []byte) *secp256k1.Scalar {
-	// tldr; The left-most Ln-bits of hash.
+	// TLDR; The left-most Ln-bits of hash.
 	var (
 		tmp    [secp256k1.ScalarSize]byte
 		offset = 0
@@ -292,4 +299,40 @@ func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
 	}
 
 	return s, nil
+}
+
+func mitigateDebianAndSony(rand io.Reader, k *PrivateKey, hBytes []byte) (io.Reader, error) {
+	var tmp [wantedEntropyBytes]byte
+	if _, err := io.ReadFull(rand, tmp[:]); err != nil {
+		return nil, fmt.Errorf("secp256k1: entropy source failure: %w", err)
+	}
+
+	xof := sha3.NewCShake256(nil, []byte("Honorary Debian/Sony RNG mitigation"))
+	_, _ = xof.Write(k.scalar.Bytes())
+	_, _ = xof.Write(tmp[:])
+	_, _ = xof.Write(hBytes)
+	return xof, nil
+}
+
+func sampleRandomScalar(rand io.Reader) (*secp256k1.Scalar, error) {
+	// Do rejection sampling to ensure that there is no bias in the
+	// scalar values.  Note that the odds of a single failure are
+	// approximately p = 3.73 * 10^-39, so even requiring a single
+	// retry is unlikely unless the entropy source is broken.
+	var (
+		tmp [secp256k1.ScalarSize]byte
+		s   = secp256k1.NewScalar()
+	)
+	for i := 0; i < 8; i++ {
+		if _, err := io.ReadFull(rand, tmp[:]); err != nil {
+			return nil, fmt.Errorf("secp256k1/secec: entropy source failure: %w", err)
+		}
+
+		_, didReduce := s.SetBytes(&tmp)
+		if didReduce == 0 && s.IsZero() == 0 {
+			return s, nil
+		}
+	}
+
+	return nil, errors.New("secp256k1/secec: failed rejection sampling")
 }
