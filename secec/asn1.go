@@ -55,7 +55,7 @@ func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 	return NewPublicKey(encodedPoint)
 }
 
-func parseASN1Signature(data []byte) ([]byte, []byte, error) {
+func parseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
 	var (
 		inner          cryptobyte.String
 		rBytes, sBytes []byte
@@ -70,7 +70,16 @@ func parseASN1Signature(data []byte) ([]byte, []byte, error) {
 		return nil, nil, errors.New("secp256k1/secec/ecdsa: malformed ASN.1 signature")
 	}
 
-	return rBytes, sBytes, nil
+	r, err := bytesToCanonicalScalar(rBytes)
+	if err != nil || r.IsZero() != 0 {
+		return nil, nil, errInvalidScalar
+	}
+	s, err := bytesToCanonicalScalar(sBytes)
+	if err != nil || s.IsZero() != 0 {
+		return nil, nil, errInvalidScalar
+	}
+
+	return r, s, nil
 }
 
 func buildASN1Signature(r, s *secp256k1.Scalar) []byte {

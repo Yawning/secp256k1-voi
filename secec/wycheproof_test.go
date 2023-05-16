@@ -320,7 +320,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	// It would be nice if this could assert that things get rejected
 	// at the correct time and place, but when the rejection happens
 	// is split between the parsing and the actual signature verify.
-	rBytes, sBytes, err := parseASN1Signature(sigBytes)
+	r, s, err := parseASN1Signature(sigBytes)
 	if err != nil {
 		// As a consolation prize, we re-do the signature verification
 		// by calling the internal routines, and assert that totally
@@ -332,10 +332,10 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	require.False(t, hasFlagRejectEarly, "failed to reject bad/exotic encoding: %+v", tc.Flags)
 	require.NoError(t, err, "parseASN1Signature: %+v", tc.Flags)
 
-	sGtHalfN, err := verify(publicKey, hBytes, rBytes, sBytes)
-	sigOk := err == nil
+	sigOk := nil == verify(publicKey, hBytes, r, s)
 	if tg.Type == typeEcdsaShitcoinVerify {
-		sigOk = sigOk && sGtHalfN == 0
+		// Special case: `s <= n` is only enforced in VerifyASN1Shitcoin.
+		sigOk = sigOk && s.IsGreaterThanHalfN() == 0
 	}
 	require.EqualValues(t, !mustFail, sigOk, "split signature verification: %+v", tc.Flags)
 }

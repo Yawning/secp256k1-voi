@@ -44,6 +44,18 @@ func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 	return buildASN1Signature(r, s), nil
 }
 
+// Verify verifies the `(r, s)` signature of `hash`, using the PublicKey
+// `k`, using the verification procedure as specifed in SEC 1,
+// Version 2.0, Section 4.1.4.  Its return value records whether the
+// signature is valid.
+func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
+	if r.IsZero() != 0 || s.IsZero() != 0 {
+		return false
+	}
+
+	return nil == verify(k, hash, r, s)
+}
+
 // VerifyASN1 verifies the ASN.1 encoded signature `sig` of `hash`,
 // using the PublicKey `k`, using the verification procedure as specifed
 // in SEC 1, Version 2.0, Section 4.1.4.  Its return value records
@@ -53,13 +65,12 @@ func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 // as in encoded as a `ECDSA-Sig-Value`, WITHOUT the optional `a` and
 // `y` fields.
 func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
-	rBytes, sBytes, err := parseASN1Signature(sig)
+	r, s, err := parseASN1Signature(sig)
 	if err != nil {
 		return false
 	}
 
-	_, err = verify(k, hash, rBytes, sBytes)
-	return err == nil
+	return nil == verify(k, hash, r, s)
 }
 
 // VerifyASN1Shitcoin verifies the ASN.1 encoded signature `sig` of `hash`,
@@ -73,13 +84,16 @@ func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
 	// testing.
 	//
 	// However, "Zero, zero fucks given.  Ah Ah Ah.".
-	rBytes, sBytes, err := parseASN1Signature(sig)
+	r, s, err := parseASN1Signature(sig)
 	if err != nil {
 		return false
 	}
 
-	sGtHalfN, err := verify(k, hash, rBytes, sBytes)
-	return err == nil && sGtHalfN == 0
+	if s.IsGreaterThanHalfN() != 0 {
+		return false
+	}
+
+	return nil == verify(k, hash, r, s)
 }
 
 func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
@@ -93,7 +107,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	//   H = Hash(M)
 	// of length hashlen octets as specified in Section 3.5. If the
 	// hash function outputs “invalid”, output “invalid” and stop.
-
+	//
 	// Note/yawning: H is provided as the input `hBytes`, but at
 	// least ensure  that it is "sensible", where we somewhat
 	// arbitrarily define "at least 128-bits" as "sensible".
@@ -184,34 +198,27 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	return r, s, nil
 }
 
-func verify(q *PublicKey, hBytes, rBytes, sBytes []byte) (uint64, error) {
+func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	// 1. If r and s are not both integers in the interval [1, n − 1],
 	// output “invalid” and stop.
-
-	r, err := bytesToCanonicalScalar(rBytes)
-	if err != nil || r.IsZero() != 0 {
-		return 0, errInvalidScalar
-	}
-	s, err := bytesToCanonicalScalar(sBytes)
-	if err != nil || s.IsZero() != 0 {
-		return 0, errInvalidScalar
-	}
-
-	sGtHalfOrder := s.IsGreaterThanHalfN()
+	//
+	// Note/yawning: (r, s) are provided as inputs, and they are
+	// guaranteed to be in the appropriate range by the time they
+	// get to this routine.
 
 	// 2. Use the hash function established during the setup procedure
 	// to compute the hash value:
 	//   H = Hash(M)
 	// of length hashlen octets as specified in Section 3.5. If the
 	// hash function outputs “invalid”, output “invalid” and stop.
-
+	//
 	// Note/yawning: H is provided as the input `hBytes`, but at
 	// least ensure  that it is "sensible", where we somewhat
 	// arbitrarily define "at least 128-bits" as "sensible".
 	// Realistically everyone is going to use at least 256-bits.
 
 	if hLen := len(hBytes); hLen < 16 {
-		return sGtHalfOrder, errInvalidDigest
+		return errInvalidDigest
 	}
 
 	// 3. Derive an integer e from H as follows:
@@ -238,7 +245,7 @@ func verify(q *PublicKey, hBytes, rBytes, sBytes []byte) (uint64, error) {
 
 	R := secp256k1.NewIdentityPoint().DoubleScalarMultBasepointVartime(u1, u2, q.point)
 	if R.IsIdentity() != 0 {
-		return sGtHalfOrder, errRIsInfinity
+		return errRIsInfinity
 	}
 
 	// 6. Convert the field element xR to an integer xR using the
@@ -253,10 +260,10 @@ func verify(q *PublicKey, hBytes, rBytes, sBytes []byte) (uint64, error) {
 	// v != r, output “invalid”.
 
 	if v.Equal(r) != 1 {
-		return sGtHalfOrder, errVNeqR
+		return errVNeqR
 	}
 
-	return sGtHalfOrder, nil
+	return nil
 }
 
 // hashToScalar converts a hash to a scalar per SEC 1, Version 2.0,
