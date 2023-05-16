@@ -96,6 +96,13 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 	return other.point.Equal(k.point) == 1
 }
 
+// IsYOdd returns true iff the y-coordinate of the PublicKey is odd.
+func (k *PublicKey) IsYOdd() bool {
+	// Since the PublicKey caches the uncompressed point, this
+	// is simple and fast.
+	return k.pointBytes[secp256k1.UncompressedPointSize-1]&1 == 1
+}
+
 // GenerateKey generates a new PrivateKey from `rand`.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	s, err := sampleRandomScalar(rand)
