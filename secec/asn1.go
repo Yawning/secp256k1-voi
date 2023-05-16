@@ -3,9 +3,12 @@ package secec
 import (
 	stdasn1 "encoding/asn1"
 	"errors"
+	"math/big"
 
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
+
+	"gitlab.com/yawning/secp256k1-voi.git"
 )
 
 var (
@@ -68,4 +71,18 @@ func parseASN1Signature(data []byte) ([]byte, []byte, error) {
 	}
 
 	return rBytes, sBytes, nil
+}
+
+func buildASN1Signature(r, s *secp256k1.Scalar) []byte {
+	var rBig, sBig big.Int
+	rBig.SetBytes(r.Bytes())
+	sBig.SetBytes(s.Bytes())
+
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BigInt(&rBig)
+		b.AddASN1BigInt(&sBig)
+	})
+
+	return b.BytesOrPanic()
 }
