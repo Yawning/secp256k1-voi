@@ -134,6 +134,7 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 }
 
 func newPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
+	// Note: Caller ensures that s is in the correct range.
 	privateKey := &PrivateKey{
 		scalar: s,
 		publicKey: &PublicKey{

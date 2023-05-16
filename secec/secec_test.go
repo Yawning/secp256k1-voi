@@ -10,10 +10,12 @@ import (
 
 const testMessage = "Most lawyers couldn’t recognize a Ponzi scheme if they were having dinner with Charles Ponzi."
 
-var testMessageHash = func() []byte {
-	h := sha256.Sum256([]byte(testMessage))
+var testMessageHash = hashMsgForTests([]byte(testMessage))
+
+func hashMsgForTests(b []byte) []byte {
+	h := sha256.Sum256(b)
 	return h[:]
-}()
+}
 
 func TestSecec(t *testing.T) {
 	// Basic integration tests.  Wycheproof will take care of most of
@@ -66,6 +68,7 @@ func TestSecec(t *testing.T) {
 		ok = pub.VerifyASN1(tmp, sig)
 		require.False(t, ok, "VerifyASN1 - Corrupted h")
 	})
+	t.Run("ECDSA/K", testEcdsaK)
 }
 
 func BenchmarkSecec(b *testing.B) {
