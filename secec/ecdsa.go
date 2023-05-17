@@ -135,8 +135,9 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// Entertainment America, Inc v. Hotz) shows that "idiots"
 	// are also litigatious asshats.
 	//
-	// Instead of RFC 6979 this feeds the private scalar,
-	// 256-bits of entropy, and the message into cSHAKE256.
+	// Hardening the user-provided RNG is a sensible thing
+	// to do, even if this wasn't something that has historically
+	// been a large problem.
 
 	fixedRng, err := mitigateDebianAndSony(rand, d, hBytes)
 	if err != nil {
@@ -309,6 +310,22 @@ func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
 }
 
 func mitigateDebianAndSony(rand io.Reader, k *PrivateKey, hBytes []byte) (io.Reader, error) {
+	// There are documented attacks that can exploit even the
+	// most subtle amounts of bias (< 1-bit) in the generation
+	// of the ECDSA nonce.
+	//
+	// RFC 6979 proposes to use HMAC_DRBG instantiated
+	// with the private key and message digest, and making
+	// signatures fully deterministic.
+	//
+	// We go one step further, and use cSHAKE256 to mix
+	// the private key, 256-bits of entropy, and the message
+	// digest.
+	//
+	// See:
+	// - https://eprint.iacr.org/2020/615.pdf
+	// - https://eprint.iacr.org/2019/1155.pdf
+
 	var tmp [wantedEntropyBytes]byte
 	if _, err := io.ReadFull(rand, tmp[:]); err != nil {
 		return nil, fmt.Errorf("secp256k1: entropy source failure: %w", err)

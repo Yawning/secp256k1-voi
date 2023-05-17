@@ -278,6 +278,13 @@ func (v *Point) rescale(p *Point) *Point {
 	// X3 = A*X1
 	// Y3 = A*Y1
 	// Z3 = 1
+	//
+	// As per "From A to Z: Projective coordinates leakage in the wild"
+	// leaking the Z-coordinate is bad.  The modular inversion algorithm
+	// used in this library is based on Fermat's Little Theorem
+	// (ie: Z^-1 = Z^(p -2) mod p). Bernstein-Yang also would be safe.
+	//
+	// See: https://eprint.iacr.org/2020/432.pdf
 
 	scaled := newRcvr()
 	a := field.NewElement().Invert(&p.z)
