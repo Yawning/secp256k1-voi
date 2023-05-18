@@ -89,6 +89,21 @@ func (v *Point) Negate(p *Point) *Point {
 	return v
 }
 
+// ConditionalNegate sets `v = p` iff `ctrl == 0`, `v = -p` otherwise,
+// and returns `v`.
+func (v *Point) ConditionalNegate(p *Point, ctrl uint64) *Point {
+	assertPointsValid(p)
+
+	negPy := field.NewElement().Negate(&p.y)
+
+	v.x.Set(&p.x)
+	v.y.ConditionalSelect(&p.y, negPy, ctrl)
+	v.z.Set(&p.z)
+
+	v.isValid = p.isValid
+	return v
+}
+
 // ConditionalSelect sets `v = a` iff `ctrl == 0`, `v = b` otherwise,
 // and returns `v`.
 func (v *Point) ConditionalSelect(a, b *Point, ctrl uint64) *Point {

@@ -193,8 +193,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// As either is valid in any other context, always produce
 	// signatures of that form.
 
-	sNeg := secp256k1.NewScalar().Negate(s)
-	s.ConditionalSelect(s, sNeg, s.IsGreaterThanHalfN())
+	s.ConditionalNegate(s, s.IsGreaterThanHalfN())
 
 	return r, s, nil
 }

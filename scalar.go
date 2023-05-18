@@ -133,6 +133,14 @@ func (s *Scalar) getBytes(dst *[ScalarSize]byte) []byte {
 	return dst[:]
 }
 
+// ConditionalNegate sets `s = a` iff `ctrl == 0`, `s = -a` otherwise,
+// and returns `s`.
+func (s *Scalar) ConditionalNegate(a *Scalar, ctrl uint64) *Scalar {
+	sNeg := NewScalar().Negate(a)
+
+	return s.ConditionalSelect(a, sNeg, ctrl)
+}
+
 // ConditionalSelect sets `s = a` iff `ctrl == 0`, `s = b` otherwise,
 // and returns `s`.
 func (s *Scalar) ConditionalSelect(a, b *Scalar, ctrl uint64) *Scalar {
