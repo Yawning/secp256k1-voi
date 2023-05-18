@@ -1,7 +1,7 @@
 package secp256k1
 
-// The various scalar point multiplication routines.  See `point_table.go`
-// for the other half of the picture.
+// The various "simple" scalar point multiplication routines.
+// See `point_table.go` for the other half of the picture.
 //
 // Note: `assertPointsValid` is checked once and only once (as part of)
 // building the table, and `v.isValid` is set once (and not overwritten)
@@ -17,7 +17,7 @@ func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 	// Precompute small multiples of P, 1P -> 15P.
 	//
 	// Past this precomputation, it is safe to trample over v, as p is
-	// no longer used so it doesn't mater if they alias.
+	// no longer used so it doesn't matter if they alias.
 	tbl := newProjectivePointMultTable(p)
 
 	v.Identity()
@@ -39,41 +39,6 @@ func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 		v.doubleComplete(v)
 
 		tbl.SelectAndAdd(v, uint64(b&0xf))
-	}
-
-	return v
-}
-
-// scalarMultVartime sets `v = s * p`, and returns `v` in variable time.
-func (v *Point) scalarMultVartime(s *Scalar, p *Point) *Point {
-	// TODO/perf: There's lots of different ways to improve on this, but
-	// even the trival change to a vartime table lookup + add saves ~14%.
-	//
-	// - Use w-NAF + the endomorphism.
-	// - Beg the fiat people for a field multiply specialized for a small
-	// multiple, then use Jacobian coordinates, because doubles in theory
-	// are cheaper that way if multiply-by-small-integer is cheap.  This
-	// will also help the complete formula case (`2m3b`).
-
-	tbl := newProjectivePointMultTable(p)
-
-	v.Identity()
-	for i, b := range s.Bytes() {
-		if i != 0 {
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-		}
-
-		tbl.SelectAndAddVartime(v, uint64(b>>4))
-
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-
-		tbl.SelectAndAddVartime(v, uint64(b&0xf))
 	}
 
 	return v
@@ -119,11 +84,11 @@ func (v *Point) scalarBaseMultVartime(s *Scalar) *Point {
 func (v *Point) DoubleScalarMultBasepointVartime(u1, u2 *Scalar, p *Point) *Point {
 	// To the best of my knowledge, doing things this way is faster than
 	// Shamir-Strauss, given our scalar-basepoint multiply implementation,
-	// especially if the variable-base multiply is fully optimized (TBD).
+	// especially if the variable-base multiply is well optimized.
 	//
 	// This routine is the most performance critical as it is the core
 	// of ECDSA verfication.
 	u1g := newRcvr().scalarBaseMultVartime(u1)
-	u2p := newRcvr().scalarMultVartime(u2, p)
+	u2p := newRcvr().scalarMultVartimeGLV(u2, p)
 	return v.Add(u1g, u2p)
 }

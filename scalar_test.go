@@ -2,6 +2,7 @@ package secp256k1
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +10,11 @@ import (
 	fiat "gitlab.com/yawning/secp256k1-voi.git/internal/fiat/secp256k1montgomeryscalar"
 	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
 )
+
+func (s *Scalar) String() string {
+	x := hex.EncodeToString(s.Bytes())
+	return x
+}
 
 func TestScalar(t *testing.T) {
 	// N = fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
@@ -97,4 +103,28 @@ func (s *Scalar) MustRandomize() *Scalar {
 func (s *Scalar) InvertFiat(x *Scalar) *Scalar {
 	fiat.Invert(&s.m, &x.m)
 	return s
+}
+
+// Bits returns the bit representation of `s` in LSB->MSB order.
+func (s *Scalar) Bits() [ScalarSize * 8]byte {
+	var nm fiat.NonMontgomeryDomainFieldElement
+	fiat.FromMontgomery(&nm, &s.m)
+
+	// XXX: This is gross, and I'm probably overcomplicating things,
+	// and MSB->LSB order is probably easier to work with, and I might
+	// as well produce output that is sized for the window used.
+
+	var dst [ScalarSize * 8]byte
+	for il, l := range nm { // For each 64-bit limb, least to most significant
+		lOff := il * 64
+		for ib := 0; ib < 8; ib++ { // For each 8-bit bytes, least to most significant
+			off := lOff + ib*8
+			b := byte(l >> (ib * 8))
+			for i := 0; i < 8; i++ { // For each bit, least to most significant
+				dst[off+i] = (b >> (i & 7)) & 1
+			}
+		}
+	}
+
+	return dst
 }

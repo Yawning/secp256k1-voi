@@ -47,21 +47,22 @@ languages, and totally, utterly hopeless in Go.
 In short (only relevant figures listed):
 ```
 cpu: AMD Ryzen 7 5700G with Radeon Graphics
-BenchmarkPoint/ScalarMult-16  	   11166	    104407 ns/op	       0 B/op	       0 allocs/op
-BenchmarkPoint/ScalarBaseMult-16             	   34546	     32906 ns/op       0 B/op	       0 allocs/op
-BenchmarkPoint/DoubleScalarMultBasepointVartime-16         	   10000	    112163 ns/op	       0 B/op	       0 allocs/op
-BenchmarkPoint/s11n/UncompressedBytes-16                   	  194841	      5441 ns/op	       0 B/op	       0 allocs/op
-BenchmarkPoint/s11n/CompressedBytes-16                     	  219763	      5611 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPoint/ScalarMult-16               	   10000	    100306 ns/op	       0 B/op       0 allocs/op
+BenchmarkPoint/ScalarBaseMult-16           	   38205	     31741 ns/op	       0 B/op       0 allocs/op
+BenchmarkPoint/DoubleScalarMultBasepointVartime-16         	   14076	     88455 ns/op	     672 B/op	      11 allocs/op
+BenchmarkPoint/s11n/UncompressedBytes-16                   	  192446	      5517 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPoint/s11n/CompressedBytes-16                     	  219115	      5520 ns/op	       0 B/op	       0 allocs/op
 ```
 
 "It's alright".  `dcrd/dcrec/secp256k1` is faster (back of the envelope
-performance for `u1 * G + u2 * P` is approx 84 us on my system), but
+performance for `u1 * G + u2 * P` is approx 81 us on my system), but
 that implementation does not have any constant time curve operations,
 and the scalar multiply uses a lot more optimization techniques.
 
 Potential improvements:
 - The constant time table lookup can be trivially vectorized.
-- The variable-time scalar-point multiply could use the secp256k1 endomorphism.
+- The GLV decomposition is not all that optimized.
+- The GLV decomposition can be used for the ScalarMult as well.
 - In theory [Bernstein-Yang inversion][6] should be faster than addition
 chain based ones, and fiat provides a divstep implementation.  Figure out
 why it is considerably (approx 2.5x) slower in practice.
