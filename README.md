@@ -20,13 +20,10 @@ Renes, Costello, and Batina are used.
 
 #### WARNING
 
-***DO NOT USE THIS PACKAGE FOR ANYTHING YET***
+***DO NOT USE THIS PACKAGE FOR ANYTHING***
 
 #### Notes
 
-- No, this is not done yet.
-- Yes, the propriatary license is a placeholder till this is done, and
-I figure out what I want to do with it.
 - Yes, this needs a lot more test cases.
 - No, this has not been audited.  Unless you are willing to pay for it,
 do not ask about it.  If you do not know how much that will cost, you
@@ -62,9 +59,10 @@ BenchmarkPoint/s11n/CompressedBytes-16                     	  219115	      5520 
 the envelope performance for `u1 * G + u2 * P` is approx 81 us on my
 system), but that implementation does not have any constant time curve
 operations.  If 4-5 usec verification performance matters that much,
-go switch to the 8.53x larger table, and fuck up your CPU's cache.
+patch the package to switch to the 8.53x larger table.
 
 Potential improvements:
+- Sit and wait for Go 1.21 to come out, it seems to do better.
 - This could use a hilariously oversized table for the variable-time
 scalar-basepoint multiply like dcrec (512 KiB vs 60 KiB).
 - The constant time table lookup can be trivially vectorized.
