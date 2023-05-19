@@ -44,30 +44,34 @@ languages, and totally, utterly hopeless in Go.
 
 ##### Performance
 
+While this does try to be reasonably performant, the primary goal is to
+be the most (obviously) correct Golang secp256k1, not the fastest Golang
+secp256k1.
+
 In short (only relevant figures listed):
 ```
 cpu: AMD Ryzen 7 5700G with Radeon Graphics
-BenchmarkPoint/ScalarMult-16               	   10000	    100306 ns/op	       0 B/op       0 allocs/op
+BenchmarkPoint/ScalarMult-16              	   16026	     75383 ns/op     176 B/op	       3 allocs/op
 BenchmarkPoint/ScalarBaseMult-16           	   38205	     31741 ns/op	       0 B/op       0 allocs/op
-BenchmarkPoint/DoubleScalarMultBasepointVartime-16         	   14076	     88455 ns/op	     672 B/op	      11 allocs/op
+BenchmarkPoint/DoubleScalarMultBasepointVartime-16 	   14116	     85917 ns/op	     176 B/op	       3 allocs/op
 BenchmarkPoint/s11n/UncompressedBytes-16                   	  192446	      5517 ns/op	       0 B/op	       0 allocs/op
 BenchmarkPoint/s11n/CompressedBytes-16                     	  219115	      5520 ns/op	       0 B/op	       0 allocs/op
 ```
 
-"It's alright".  `dcrd/dcrec/secp256k1` is faster (back of the envelope
-performance for `u1 * G + u2 * P` is approx 81 us on my system), but
-that implementation does not have any constant time curve operations,
-and the scalar multiply uses a lot more optimization techniques.
+"It's alright".  `dcrd/dcrec/secp256k1` is marginally faster (back of
+the envelope performance for `u1 * G + u2 * P` is approx 81 us on my
+system), but that implementation does not have any constant time curve
+operations.  If 4-5 usec verification performance matters that much,
+go switch to the 8.53x larger table, and fuck up your CPU's cache.
 
 Potential improvements:
+- This could use a hilariously oversized table for the variable-time
+scalar-basepoint multiply like dcrec (512 KiB vs 60 KiB).
 - The constant time table lookup can be trivially vectorized.
-- The GLV decomposition is not all that optimized.
-- The GLV decomposition can be used for the ScalarMult as well.
 - In theory [Bernstein-Yang inversion][6] should be faster than addition
 chain based ones, and fiat provides a divstep implementation.  Figure out
 why it is considerably (approx 2.5x) slower in practice.
-- If absolutely needed, this could use a hilariously oversized table for
-the scalar-basepoint multiply like dcrec (512 KiB vs 60 KiB).
+- Go and add "multiply a field element by a small integer" to fiat.
 
 [1]: https://github.com/mit-plv/fiat-crypto
 [2]: https://github.com/mmcloughlin/addchain

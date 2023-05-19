@@ -1,8 +1,9 @@
 package secp256k1
 
 import (
-	"math/big"
+	"math/bits"
 
+	fiat "gitlab.com/yawning/secp256k1-voi.git/internal/fiat/secp256k1montgomeryscalar"
 	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
 )
 
@@ -28,6 +29,7 @@ import (
 // - https://bitcointalk.org/index.php?topic=3238.0
 // - https://homepages.dcc.ufmg.br/~leob/papers/jcen12.pdf
 
+// Constants shamelessly stolen from libsecp256k1's sage script output.
 var (
 	// -Lambda = 0xac9c52b33fa3cf1f5ad9e3fd77ed9ba4a880b9fc8ec739c2e0cfc810b51283cf
 	negLambda = newScalarFromSaturated(
@@ -52,16 +54,6 @@ var (
 		0xe4437ed6010e8828,
 		0x6f547fa90abfe4c3,
 	)
-	bigNegB1 = func() *big.Int {
-		z, _ := (&big.Int{}).SetString("0xe4437ed6010e88286f547fa90abfe4c3", 0)
-		return z
-	}()
-
-	// B2 = 0x3086d221a7d46bcde86c90e49284eb15
-	bigB2 = func() *big.Int {
-		z, _ := (&big.Int{}).SetString("0x3086d221a7d46bcde86c90e49284eb15", 0)
-		return z
-	}()
 
 	// -B2 = 0xfffffffffffffffffffffffffffffffe8a280ac50774346dd765cda83db1562c
 	negB2 = newScalarFromSaturated(
@@ -71,14 +63,24 @@ var (
 		0xd765cda83db1562c,
 	)
 
-	// n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
-	bigN = func() *big.Int {
-		z, _ := (&big.Int{}).SetString("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 0)
-		return z
-	}()
+	// G1 = 0x3086d221a7d46bcde86c90e49284eb153daa8a1471e8ca7fe893209a45dbb031
+	g1 = newScalarFromSaturated(
+		0x3086d221a7d46bcd,
+		0xe86c90e49284eb15,
+		0x3daa8a1471e8ca7f,
+		0xe893209a45dbb031,
+	)
+
+	// G2 = 0xe4437ed6010e88286f547fa90abfe4c4221208ac9df506c61571b4ae8ac47f71
+	g2 = newScalarFromSaturated(
+		0xe4437ed6010e8828,
+		0x6f547fa90abfe4c4,
+		0x221208ac9df506c6,
+		0x1571b4ae8ac47f71,
+	)
 )
 
-func (s *Scalar) splitVartime() (*Scalar, *Scalar) {
+func (s *Scalar) splitGLV() (*Scalar, *Scalar) {
 	// From "Guide to Elliptic Curve Cryptography" by Hankerson,
 	// Menezes, Vanstone, Algorithm 3.74 "Balanced length-two
 	// representation of a multiplier":
@@ -89,39 +91,42 @@ func (s *Scalar) splitVartime() (*Scalar, *Scalar) {
 	//   k2 =    -c1b1 - c2b2
 	//
 	// As libsecp256k1's implementation and comments notes:
+	//
 	//   k1 = k - k2 * lambda mod n
+	//
 	// Which saves having to use a1 and a2.
 
-	// Regardless of how we do this, because fiat won't do it
-	// for us, we need to get the non-montgomery representation
-	// of k.
+	// As a further optimization, as Per "Efficient software
+	// implementation of public-key cryptography on sensor networks
+	// using the MSP430X microcontroller" by Gouvêa, Oliveira, and
+	// López, there is a way to do more pre-computation, to remove
+	// the need for multiple precision division like thus:
+	//
+	//   d = a1b2 - a2*b1 (== n)
+	//   g1 = round(2^384*b2/d)
+	//   g2 = round(2^384*(-b1)/d)
+	//
+	//   c1 = floored_div_pow2(k * g1, 384)
+	//   c2 = floored_div_pow2(k * g2, 384)
+	//   k2 = -c1b1 - c2b2
+	//
+	// Where "the floored division by 2^t is a simple right shift
+	// of t bits. The last bit discarded in this right shift must
+	// be stored, and if it is 1, then b1 = β1 + 1, otherwise b1
+	// = β1. The same applies to β2."
+	//
+	// This is what libsecp256k1 does, and seeing them do it,
+	// inspired the decision to do it here.
+	//
+	// See:
+	// - https://link.springer.com/article/10.1007/s13389-012-0029-z
+	//   (https://homepages.dcc.ufmg.br/~leob/papers/jcen12.pdf)
 
-	kBytes := s.Bytes()
+	// c1 = floored_div_pow2(k * g1, 384)
+	c1 := NewScalar().mulGFlooredDiv(s, g1)
 
-	// First attempt: Do the naive thing, and use math/big.Int
-	// to derive c1 and c2.  This isn't nearly as bad as it may
-	// seem, given the vartime label (~2040 ns).  Shame that it
-	// does heap allocs though.
-
-	bigK := (&big.Int{}).SetBytes(kBytes)
-
-	big2Scalar := func(z *big.Int) *Scalar {
-		var tmp [ScalarSize]byte
-		z.FillBytes(tmp[:])
-
-		// INVARIANT: z < n
-		sc, err := NewScalarFromCanonicalBytes(&tmp)
-		if err != nil {
-			panic("secp256k1/scalar: failed to set in split: " + err.Error())
-		}
-		return sc
-	}
-
-	// c1 = round(b2 * k / n)
-	c1 := big2Scalar((&big.Int{}).Div((&big.Int{}).Mul(bigB2, bigK), bigN))
-
-	// c2 = round(-b1 * k / n)
-	c2 := big2Scalar((&big.Int{}).Div((&big.Int{}).Mul(bigNegB1, bigK), bigN))
+	// c2 = floored_div_pow2(k * g2, 384)
+	c2 := NewScalar().mulGFlooredDiv(s, g2)
 
 	// k2 = -c1b1 - c2b2
 	k2 := NewScalar().Multiply(c1, negB1)
@@ -133,6 +138,77 @@ func (s *Scalar) splitVartime() (*Scalar, *Scalar) {
 	k1.Add(s, k1)
 
 	return k1, k2
+}
+
+func (s *Scalar) mulGFlooredDiv(k, g *Scalar) *Scalar {
+	// First calculate k * g, using the schoolbook method.
+	//
+	// See: "Guide to Elliptic Curve Cryptography" by Hankerson,
+	// Menezes, Vanstone, Algorithm 2.9 "Integer multiplication
+	// (operand-scanning form)", though the schoolbook method
+	// is what is taught in gradeschool, just with limbs.
+
+	var a, b fiat.NonMontgomeryDomainFieldElement
+	fiat.FromMontgomery(&a, &k.m)
+	fiat.FromMontgomery(&b, &g.m)
+
+	innerProduct := func(c, a, b, u uint64) (uint64, uint64) {
+		// (UV) = c[i+j] + a[i] * b[j] + u
+		hi, lo := bits.Mul64(a, b)
+
+		var carry uint64
+		lo, carry = bits.Add64(lo, c, 0)
+		hi += carry
+
+		lo, carry = bits.Add64(lo, u, 0)
+		hi += carry
+
+		return hi, lo
+	}
+
+	a0, a1, a2, a3 := a[0], a[1], a[2], a[3]
+	b0, b1, b2, b3 := b[0], b[1], b[2], b[3]
+
+	var u, c0, c1, c2, c3, c4, c5, c6, c7 uint64
+
+	// i = 0
+	u, c0 = innerProduct(c0, a0, b0, 0)
+	u, c1 = innerProduct(c1, a0, b1, u)
+	u, c2 = innerProduct(c2, a0, b2, u)
+	c4, c3 = innerProduct(c3, a0, b3, u)
+
+	// i = 1
+	u, c1 = innerProduct(c1, a1, b0, 0)
+	u, c2 = innerProduct(c2, a1, b1, u)
+	u, c3 = innerProduct(c3, a1, b2, u)
+	c5, c4 = innerProduct(c4, a1, b3, u)
+
+	// i = 2
+	u, c2 = innerProduct(c2, a2, b0, 0)
+	u, c3 = innerProduct(c3, a2, b1, u)
+	u, c4 = innerProduct(c4, a2, b2, u)
+	c6, c5 = innerProduct(c5, a2, b3, u)
+
+	// i = 3
+	u, _ = innerProduct(c3, a3, b0, 0)
+	u, _ = innerProduct(c4, a3, b1, u)
+	u, c5 = innerProduct(c5, a3, b2, u)
+	c7, c6 = innerProduct(c6, a3, b3, u)
+
+	// Then right shift by 384 bits, preserving the last bit
+	// discarded by the shift.  Since the shift happens to
+	// be an exact multiple of the limb size, there isn't
+	// any actual shifting involved, only discarding the
+	// 6 least-significant limbs.
+	//
+	// The unchecked set is fine here since, the only check
+	// is to see if the scalar is fully reduced.
+
+	shouldAdd := (c5 >> 63) & 1
+	c6, u = bits.Add64(c6, shouldAdd, 0)
+	c7 += u
+
+	return s.uncheckedSetSaturated(&[4]uint64{c6, c7, 0, 0})
 }
 
 func (v *Point) mulBeta(p *Point) *Point {
@@ -148,9 +224,7 @@ func (v *Point) mulBeta(p *Point) *Point {
 
 // scalarMultVartimeGLV sets `v = s * p`, and returns `v` in variable time.
 func (v *Point) scalarMultVartimeGLV(s *Scalar, p *Point) *Point {
-	// TODO/perf: Consider using w-NAF as well.
-
-	pee := NewPointFrom(p)
+	pee := NewPointFrom(p) // Note: Checks p is valid.
 	peePrime := newRcvr().mulBeta(p)
 
 	// Split the scalar.
@@ -158,7 +232,7 @@ func (v *Point) scalarMultVartimeGLV(s *Scalar, p *Point) *Point {
 	// Pick the shorter reprentation for each of the returned scalars
 	// by negating both the scalar and it's corresponding point if
 	// required.
-	k1, k2 := s.splitVartime()
+	k1, k2 := s.splitGLV()
 	if k1.IsGreaterThanHalfN() == 1 {
 		k1.Negate(k1)
 		pee.Negate(pee)
@@ -173,23 +247,11 @@ func (v *Point) scalarMultVartimeGLV(s *Scalar, p *Point) *Point {
 
 	v.Identity()
 
-	off := 15 // XXX: Could be 16 with tighter bounds on split.
+	const off = 16
 	k1Bytes, k2Bytes := k1.Bytes(), k2.Bytes()
-	for {
-		if k1Bytes[off] != 0 || k2Bytes[off] != 0 {
-			break
-		}
-		off++
-		if off == ScalarSize {
-			// k1 == 0 && k2 == 0, therefore s * P = Inf
-			return v
-		}
-	}
-
 	k1Bytes, k2Bytes = k1Bytes[off:], k2Bytes[off:]
-	kLen := len(k1Bytes)
 
-	for i := 0; i < kLen; i++ {
+	for i := 0; i < ScalarSize-off; i++ {
 		if i != 0 {
 			v.doubleComplete(v)
 			v.doubleComplete(v)
@@ -209,6 +271,55 @@ func (v *Point) scalarMultVartimeGLV(s *Scalar, p *Point) *Point {
 
 		pTbl.SelectAndAddVartime(v, uint64(bK1&0xf))
 		pPrimeTbl.SelectAndAddVartime(v, uint64(bK2&0xf))
+	}
+
+	return v
+}
+
+// ScalarMult sets `v = s * p`, and returns `v`.
+func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
+	pee := NewPointFrom(p) // Note: Checks p is valid.
+	peePrime := newRcvr().mulBeta(p)
+
+	k1, k2 := s.splitGLV()
+
+	negateK1 := k1.IsGreaterThanHalfN()
+	k1.ConditionalNegate(k1, negateK1)
+	pee.ConditionalNegate(pee, negateK1)
+
+	negateK2 := k2.IsGreaterThanHalfN()
+	k2.ConditionalNegate(k2, negateK2)
+	peePrime.ConditionalNegate(peePrime, negateK2)
+
+	pTbl := newProjectivePointMultTable(pee)
+	pPrimeTbl := newProjectivePointMultTable(peePrime)
+
+	v.Identity()
+
+	const off = 16
+	k1Bytes, k2Bytes := k1.Bytes(), k2.Bytes()
+	k1Bytes, k2Bytes = k1Bytes[off:], k2Bytes[off:]
+
+	for i := 0; i < ScalarSize-off; i++ {
+		if i != 0 {
+			v.doubleComplete(v)
+			v.doubleComplete(v)
+			v.doubleComplete(v)
+			v.doubleComplete(v)
+		}
+
+		bK1, bK2 := k1Bytes[i], k2Bytes[i]
+
+		pTbl.SelectAndAdd(v, uint64(bK1>>4))
+		pPrimeTbl.SelectAndAdd(v, uint64(bK2>>4))
+
+		v.doubleComplete(v)
+		v.doubleComplete(v)
+		v.doubleComplete(v)
+		v.doubleComplete(v)
+
+		pTbl.SelectAndAdd(v, uint64(bK1&0xf))
+		pPrimeTbl.SelectAndAdd(v, uint64(bK2&0xf))
 	}
 
 	return v

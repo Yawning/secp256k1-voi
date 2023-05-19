@@ -27,6 +27,8 @@ var (
 		0xffffffffffffffff,
 		0x7fffffffffffffff,
 	}
+
+	scOne = NewScalar().One()
 )
 
 // Scalar is an integer modulo `n = 2^256 - 432420386565659656852420866394968145599`.

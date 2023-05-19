@@ -15,7 +15,7 @@ func testScalarSplit(t *testing.T) {
 
 	for i, v := range []*Scalar{
 		NewScalar(),
-		NewScalar().One(),
+		scOne,
 		NewScalar().MustRandomize(),
 
 		// Test cases from libsecp256k1
@@ -42,7 +42,7 @@ func testScalarSplit(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("Case %d", i), func(t *testing.T) {
 			// t.Logf("Scalar: %v", v)
-			k1, k2 := v.splitVartime()
+			k1, k2 := v.splitGLV()
 			// t.Logf("k1: %v", k1)
 			// t.Logf("k2: %v", k2)
 
@@ -51,10 +51,7 @@ func testScalarSplit(t *testing.T) {
 			k.Add(k, k1)
 			require.EqualValues(t, 1, v.Equal(k), "k = k1 + k2 * lambda mod n")
 
-			// The split scalars (or their negatives) are ~= sqrt(n).
-			//
-			// XXX/yawning: libsecp256k1's way of doing this gets everything
-			// <= 128-bits in length.  We currently check for 129-bits.
+			// The split scalars (or their negatives) are < 2^128.
 			var k1Neg, k2Neg bool
 			if k1.IsGreaterThanHalfN() == 1 {
 				k1.Negate(k1)
@@ -70,10 +67,10 @@ func testScalarSplit(t *testing.T) {
 			fiat.FromMontgomery(&tmp2, &k2.m)
 
 			require.Zero(t, tmp1[3], "k1 limb 3 == 0")
-			require.True(t, tmp1[2] <= 1, "k1 limb 2 <= 1")
+			require.Zero(t, tmp1[2], "k1 limb 2 == 0")
 
 			require.Zero(t, tmp2[3], "k2 limb 3 == 0")
-			require.True(t, tmp2[2] <= 1, "k2 limb 2 <= 1")
+			require.Zero(t, tmp2[2], "k2 limb 2 == 0")
 
 			// k * P = k1 * P + k2 * lambda * P
 			p := newRcvr().MustRandomize()

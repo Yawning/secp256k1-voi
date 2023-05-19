@@ -7,43 +7,6 @@ package secp256k1
 // building the table, and `v.isValid` is set once (and not overwritten)
 // when it is initialized to the point at infinity.
 
-// ScalarMult sets `v = s * p`, and returns `v`.
-func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
-	// This uses a 4-bit window, decreasing index (MSB -> LSB).  A 2-bit
-	// window is only ~10% worse, so the tradeoff for the larger table
-	// isn't totally convincing, but it sees like a reasonably popular
-	// window size.
-
-	// Precompute small multiples of P, 1P -> 15P.
-	//
-	// Past this precomputation, it is safe to trample over v, as p is
-	// no longer used so it doesn't matter if they alias.
-	tbl := newProjectivePointMultTable(p)
-
-	v.Identity()
-	for i, b := range s.Bytes() {
-		// Skip the very first set of doubles, as v is guaranteed to be
-		// the point at infinity.
-		if i != 0 {
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-		}
-
-		tbl.SelectAndAdd(v, uint64(b>>4))
-
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-
-		tbl.SelectAndAdd(v, uint64(b&0xf))
-	}
-
-	return v
-}
-
 // ScalarBaseMult sets `v = s * G`, and returns `v`, where `G` is the
 // generator.
 func (v *Point) ScalarBaseMult(s *Scalar) *Point {
