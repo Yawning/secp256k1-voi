@@ -216,71 +216,6 @@ func (v *Point) scalarMultTrivial(s *Scalar, p *Point) *Point {
 	return v.Set(q)
 }
 
-func (v *Point) scalarMultNonGLV(s *Scalar, p *Point) *Point {
-	// This uses a 4-bit window, decreasing index (MSB -> LSB).  A 2-bit
-	// window is only ~10% worse, so the tradeoff for the larger table
-	// isn't totally convincing, but it sees like a reasonably popular
-	// window size.
-
-	// Precompute small multiples of P, 1P -> 15P.
-	//
-	// Past this precomputation, it is safe to trample over v, as p is
-	// no longer used so it doesn't matter if they alias.
-	tbl := newProjectivePointMultTable(p)
-
-	v.Identity()
-	for i, b := range s.Bytes() {
-		// Skip the very first set of doubles, as v is guaranteed to be
-		// the point at infinity.
-		if i != 0 {
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-		}
-
-		tbl.SelectAndAdd(v, uint64(b>>4))
-
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-
-		tbl.SelectAndAdd(v, uint64(b&0xf))
-	}
-
-	return v
-}
-
-func (v *Point) scalarMultVartimeNonGLV(s *Scalar, p *Point) *Point {
-	// This is the version of the variable time, variable-base
-	// scalar multiply that does not use GLV decomposition
-	// for benchmarking purposes.
-
-	tbl := newProjectivePointMultTable(p)
-
-	v.Identity()
-	for i, b := range s.Bytes() {
-		if i != 0 {
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-			v.doubleComplete(v)
-		}
-
-		tbl.SelectAndAddVartime(v, uint64(b>>4))
-
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-		v.doubleComplete(v)
-
-		tbl.SelectAndAddVartime(v, uint64(b&0xf))
-	}
-
-	return v
-}
-
 func BenchmarkPoint(b *testing.B) {
 	// Yes, this is a scalar op, but it's sole purpose is
 	// to make point multiplication faster.
@@ -343,30 +278,6 @@ func BenchmarkPoint(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			p.Double(p)
-		}
-	})
-	b.Run("ScalarMult/NonGLV", func(b *testing.B) {
-		s := newScalarFromSaturated(0, 0, 0, 42069)
-		q := NewGeneratorPoint()
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			q.scalarMultNonGLV(s, q)
-		}
-	})
-	b.Run("ScalarMult/VartimeNonGLV", func(b *testing.B) {
-		var s Scalar
-		q := NewGeneratorPoint()
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			b.StopTimer()
-			s.MustRandomize()
-			b.StartTimer()
-
-			q.scalarMultVartimeNonGLV(&s, q)
 		}
 	})
 	b.Run("ScalarBaseMult", func(b *testing.B) {

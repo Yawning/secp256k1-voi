@@ -213,13 +213,6 @@ func NewElementFromCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
 	return e, nil
 }
 
-// BytesAreCanonical returns true iff `src` represents a canonically
-// encoded field element in big-endian byte order.
-func BytesAreCanonical(src *[ElementSize]byte) bool {
-	l := helpers.BytesToSaturated(src)
-	return saturatedInRange(&l)
-}
-
 func saturatedInRange(a *[4]uint64) bool {
 	// XXX: Maybe this should do this "more correctly" and return
 	// a uint64.  But AFAIK the only use of this routine is going
