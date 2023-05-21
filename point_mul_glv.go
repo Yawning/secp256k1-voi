@@ -173,9 +173,9 @@ func (s *Scalar) mulGFlooredDiv(k, g *Scalar) *Scalar {
 
 	// i = 0
 	u, _ = innerProduct(0 /* c0 */, a0, b0, 0)
-	u, c1 = innerProduct(c1, a0, b1, u)
-	u, c2 = innerProduct(c2, a0, b2, u)
-	c4, c3 = innerProduct(c3, a0, b3, u)
+	u, c1 = innerProduct(0 /* c1 */, a0, b1, u)
+	u, c2 = innerProduct(0 /* c2 */, a0, b2, u)
+	c4, c3 = innerProduct(0 /* c3 */, a0, b3, u)
 
 	// i = 1
 	u, _ = innerProduct(c1, a1, b0, 0)
