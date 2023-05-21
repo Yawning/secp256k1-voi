@@ -1,6 +1,7 @@
 package secec
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"testing"
 
@@ -97,12 +98,12 @@ func testEcdsaK(t *testing.T) {
 		// deterministic.
 
 		r1, s1, err := testKey.Sign(zeroReader{}, msg1Hash)
-		require.NoError(t, err, "k1.sign(zeroReader, msg1)")
+		require.NoError(t, err, "k1.Sign(zeroReader, msg1)")
 		sigOk := testKey.PublicKey().Verify(msg1Hash, r1, s1)
 		require.True(t, sigOk, "sig1 ok")
 
 		r1check, s1check, err := testKey.Sign(zeroReader{}, msg1Hash)
-		require.NoError(t, err, "sign(zeroReader, msg1) - again")
+		require.NoError(t, err, "Sign(zeroReader, msg1) - again")
 
 		require.EqualValues(t, r1.Bytes(), r1check.Bytes(), "r1 != r1check")
 		require.EqualValues(t, s1.Bytes(), s1check.Bytes(), "s1 != s1check")
@@ -110,7 +111,7 @@ func testEcdsaK(t *testing.T) {
 		// Signature 2 (testKey, all 0 entropy, msg2)
 
 		r2, s2, err := testKey.Sign(zeroReader{}, msg2Hash)
-		require.NoError(t, err, "k1.sign(zeroReader, msg2)")
+		require.NoError(t, err, "k1.Sign(zeroReader, msg2)")
 		sigOk = testKey.PublicKey().Verify(msg2Hash, r2, s2)
 		require.True(t, sigOk, "sig2 ok")
 
@@ -134,10 +135,10 @@ func testEcdsaK(t *testing.T) {
 		testKey2, err := newPrivateKeyFromScalar(testKeyScalar2)
 		require.NoError(t, err, "newPrivateKeyFromScalar")
 
-		// Signature 3 (testKey3, all 0 entropy, msg1)
+		// Signature 3 (testKey2, all 0 entropy, msg1)
 
 		r3, s3, err := testKey2.Sign(zeroReader{}, msg1Hash)
-		require.NoError(t, err, "k2.sign(zeroReader, msg1)")
+		require.NoError(t, err, "k2.Sign(zeroReader, msg1)")
 		sigOk = testKey2.PublicKey().Verify(msg1Hash, r3, s3)
 		require.True(t, sigOk, "sig3 ok")
 
@@ -145,6 +146,20 @@ func testEcdsaK(t *testing.T) {
 		// to sign the same message, r should be different.
 
 		require.NotEqualValues(t, r1.Bytes(), r3.Bytes(), "r1 != r3")
+
+		// Signature 4 (testKey, actual entropy, msg1)
+
+		r4, s4, err := testKey.Sign(rand.Reader, msg1Hash)
+		require.NoError(t, err, "k1.Sign(rand.Reader, msg1")
+		sigOk = testKey.PublicKey().Verify(msg1Hash, r4, s4)
+		require.True(t, sigOk, "sig4 ok")
+
+		require.NotEqualValues(t, r1.Bytes(), r4.Bytes(), "r1 != r4")
+		require.NotEqualValues(t, s1.Bytes(), s4.Bytes(), "s1 != s4")
+
+		// Finally, with actual entropy, using the same private key
+		// to sign the same message, should result in a non-deterministic
+		// signature.
 	})
 }
 
