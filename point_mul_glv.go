@@ -169,22 +169,22 @@ func (s *Scalar) mulGFlooredDiv(k, g *Scalar) *Scalar {
 	a0, a1, a2, a3 := a[0], a[1], a[2], a[3]
 	b0, b1, b2, b3 := b[0], b[1], b[2], b[3]
 
-	var u, c0, c1, c2, c3, c4, c5, c6, c7 uint64
+	var u, c1, c2, c3, c4, c5, c6, c7 uint64
 
 	// i = 0
-	u, c0 = innerProduct(c0, a0, b0, 0)
+	u, _ = innerProduct(0 /* c0 */, a0, b0, 0)
 	u, c1 = innerProduct(c1, a0, b1, u)
 	u, c2 = innerProduct(c2, a0, b2, u)
 	c4, c3 = innerProduct(c3, a0, b3, u)
 
 	// i = 1
-	u, c1 = innerProduct(c1, a1, b0, 0)
+	u, _ = innerProduct(c1, a1, b0, 0)
 	u, c2 = innerProduct(c2, a1, b1, u)
 	u, c3 = innerProduct(c3, a1, b2, u)
 	c5, c4 = innerProduct(c4, a1, b3, u)
 
 	// i = 2
-	u, c2 = innerProduct(c2, a2, b0, 0)
+	u, _ = innerProduct(c2, a2, b0, 0)
 	u, c3 = innerProduct(c3, a2, b1, u)
 	u, c4 = innerProduct(c4, a2, b2, u)
 	c6, c5 = innerProduct(c5, a2, b3, u)
