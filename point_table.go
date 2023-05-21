@@ -29,10 +29,9 @@ type projectivePointMultTable [15]Point
 // SelectAndAdd sets `sum = sum + idx * P`, and returns `sum`.  idx
 // MUST be in the range of `[0, 15]`.
 func (tbl *projectivePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
-	addend := NewIdentityPoint()
-	for i := uint64(1); i < 16; i++ {
-		addend.uncheckedConditionalSelect(addend, &tbl[i-1], helpers.Uint64Equal(idx, i))
-	}
+	addend := newRcvr()
+	lookupProjectivePoint(tbl, addend, idx)
+
 	return sum.addComplete(sum, addend)
 }
 
@@ -67,17 +66,13 @@ type affinePointMultTable [15]affinePoint
 // SelectAndAdd sets `sum = sum + idx * P`, and returns `sum`.  idx
 // MUST be in the range of `[0, 15]`.
 func (tbl *affinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
-	var x, y field.Element
+	var ap affinePoint
 	isInfinity := helpers.Uint64IsZero(idx)
-	for i := uint64(1); i < 16; i++ {
-		ctrl := helpers.Uint64Equal(idx, i)
-		x.ConditionalSelect(&x, &tbl[i-1].x, ctrl)
-		y.ConditionalSelect(&y, &tbl[i-1].y, ctrl)
-	}
+	lookupAffinePoint(tbl, &ap, idx)
 
 	// The formula is incorrect for the point at infinity, so store
 	// the result in a temporary value...
-	tmp := newRcvr().addMixed(sum, &x, &y)
+	tmp := newRcvr().addMixed(sum, &ap.x, &ap.y)
 
 	// ... and conditionally select the correct result.
 	return sum.uncheckedConditionalSelect(tmp, sum, isInfinity)

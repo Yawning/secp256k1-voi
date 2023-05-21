@@ -37,6 +37,9 @@ tags that make this easy (and no, keeping track of all the architectures
 is not "easy").
 - No attempt is made to sanitize memory.  It is a lost cause in most
 languages, and totally, utterly hopeless in Go.
+- SIMD is used to accelerate the constant time table lookups.  Building
+with `purego` disables the use of assembly.  It is almost, but not
+quite, not even worth having variable-time variants of the multiplies.
 - Worms in my brain, get them out.
 
 ##### Performance
@@ -48,8 +51,8 @@ secp256k1.
 In short (only relevant figures listed):
 ```
 cpu: AMD Ryzen 7 5700G with Radeon Graphics
-BenchmarkPoint/ScalarMult-16              	   16026	     75383 ns/op     176 B/op	       3 allocs/op
-BenchmarkPoint/ScalarBaseMult-16           	   38205	     31741 ns/op	       0 B/op       0 allocs/op
+BenchmarkPoint/GLV/ScalarMult-16          	   18753	     64955 ns/op     176 B/op	       3 allocs/op
+BenchmarkPoint/ScalarBaseMult-16          	   47127	     24230 ns/op       0 B/op	       0 allocs/op
 BenchmarkPoint/DoubleScalarMultBasepointVartime-16 	   14116	     85917 ns/op	     176 B/op	       3 allocs/op
 BenchmarkPoint/s11n/UncompressedBytes-16                   	  192446	      5517 ns/op	       0 B/op	       0 allocs/op
 BenchmarkPoint/s11n/CompressedBytes-16                     	  219115	      5520 ns/op	       0 B/op	       0 allocs/op
@@ -65,7 +68,6 @@ Potential improvements:
 - Sit and wait for Go 1.21 to come out, it seems to do better.
 - This could use a hilariously oversized table for the variable-time
 scalar-basepoint multiply like dcrec (512 KiB vs 60 KiB).
-- The constant time table lookup can be trivially vectorized.
 - In theory [Bernstein-Yang inversion][6] should be faster than addition
 chain based ones, and fiat provides a divstep implementation.  Figure out
 why it is considerably (approx 2.5x) slower in practice.
