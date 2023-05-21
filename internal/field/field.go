@@ -2,6 +2,7 @@
 package field
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -159,7 +160,7 @@ func (fe *Element) IsOdd() uint64 {
 	return helpers.Uint64IsNonzero(nm[0] & 1)
 }
 
-// String returns the big-endian hex representation of fe.
+// String returns the big-endian hex representation of `fe`.
 func (fe *Element) String() string {
 	return hex.EncodeToString(fe.Bytes())
 }
@@ -170,6 +171,19 @@ func (fe *Element) setSaturated(a *[4]uint64) bool {
 	}
 	fiat.ToMontgomery(&fe.m, (*fiat.NonMontgomeryDomainFieldElement)(a))
 	return true
+}
+
+// MustRandomize randomizes and returns `fe`, or panics.
+func (fe *Element) MustRandomize() *Element {
+	var b [ElementSize]byte
+	for {
+		if _, err := rand.Read(b[:]); err != nil {
+			panic("internal/field: entropy source failure")
+		}
+		if _, err := fe.SetCanonicalBytes(&b); err == nil {
+			return fe
+		}
+	}
 }
 
 // NewElement returns a new zero Element.

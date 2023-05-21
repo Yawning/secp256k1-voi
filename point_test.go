@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
 	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
 )
 
@@ -125,6 +126,9 @@ func testPointScalarMult(t *testing.T) {
 
 			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: s * check (trivial) == s * p1 (ct)", i))
 			requirePointEquals(t, p1, p2, fmt.Sprintf("[%d]: s * p1 (ct) == s * p2 (vartime)", i))
+
+			p1.MustRandomizeZ()
+			p2.MustRandomizeZ()
 		}
 	})
 }
@@ -155,15 +159,19 @@ func testPointScalarBaseMult(t *testing.T) {
 	})
 	t.Run("Consistency", func(t *testing.T) {
 		var s Scalar
-		check, p1, pv, g := newRcvr(), newRcvr(), newRcvr(), NewGeneratorPoint()
+		check, p1, p2, p3, g := newRcvr(), newRcvr(), newRcvr(), newRcvr(), NewGeneratorPoint()
 		for i := 0; i < randomTestIters; i++ {
 			s.MustRandomize()
 			check.scalarMultTrivial(&s, g)
 			p1.ScalarBaseMult(&s)
-			pv.scalarBaseMultVartime(&s)
+			p2.scalarBaseMultVartime(&s)
+			p3.ScalarMult(&s, g)
+
+			g.MustRandomizeZ()
 
 			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: s * G (trivial) != s * G (ct)", i))
-			requirePointEquals(t, p1, pv, fmt.Sprintf("[%d]: s * G (ct) != s * G (vartime)", i))
+			requirePointEquals(t, p1, p2, fmt.Sprintf("[%d]: s * G (ct) != s * G (vartime)", i))
+			requirePointEquals(t, p1, p3, fmt.Sprintf("[%d]: s * G (ct) != s * G (generic, ct)", i))
 		}
 	})
 }
@@ -171,6 +179,25 @@ func testPointScalarBaseMult(t *testing.T) {
 func (v *Point) MustRandomize() *Point {
 	s := NewScalar().MustRandomize()
 	return v.ScalarBaseMult(s)
+}
+
+func (v *Point) MustRandomizeZ() *Point {
+	assertPointsValid(v)
+
+	if v.IsIdentity() != 0 {
+		return v
+	}
+	for {
+		rndFactor := field.NewElement().MustRandomize()
+		if rndFactor.IsZero() != 0 {
+			continue
+		}
+
+		v.x.Multiply(&v.x, rndFactor)
+		v.y.Multiply(&v.y, rndFactor)
+		v.z.Multiply(&v.z, rndFactor)
+		return v
+	}
 }
 
 func requirePointDeepEquals(t *testing.T, expected, actual *Point, descr string) {
