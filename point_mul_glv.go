@@ -324,3 +324,17 @@ func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 
 	return v
 }
+
+// DoubleScalarMultBasepointVartime sets `v = u1 * G + u2 * P`, and returns
+// `v` in variable time, where `G` is the generator.
+func (v *Point) DoubleScalarMultBasepointVartime(u1, u2 *Scalar, p *Point) *Point {
+	// To the best of my knowledge, doing things this way is faster than
+	// Shamir-Strauss, given our scalar-basepoint multiply implementation,
+	// especially if the variable-base multiply is well optimized.
+	//
+	// This routine is the most performance critical as it is the core
+	// of ECDSA verfication.
+	u1g := newRcvr().scalarBaseMultVartime(u1)
+	u2p := newRcvr().scalarMultVartimeGLV(u2, p)
+	return v.Add(u1g, u2p)
+}

@@ -335,13 +335,6 @@ func BenchmarkPoint(b *testing.B) {
 			q.scalarBaseMultVartime(&s)
 		}
 	})
-	b.Run("ScalarBaseMult/GenTable", func(b *testing.B) {
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			newLargeAffinePointMultTable(NewGeneratorPoint())
-		}
-	})
 	b.Run("DoubleScalarMultBasepointVartime", func(b *testing.B) {
 		var s1, s2 Scalar
 		q := NewGeneratorPoint()

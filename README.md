@@ -53,21 +53,18 @@ In short (only relevant figures listed):
 cpu: AMD Ryzen 7 5700G with Radeon Graphics
 BenchmarkPoint/GLV/ScalarMult-16          	   18753	     64955 ns/op     176 B/op	       3 allocs/op
 BenchmarkPoint/ScalarBaseMult-16          	   47127	     24230 ns/op       0 B/op	       0 allocs/op
-BenchmarkPoint/DoubleScalarMultBasepointVartime-16 	   14116	     85917 ns/op	     176 B/op	       3 allocs/op
+BenchmarkPoint/DoubleScalarMultBasepointVartime-16         	   15546	     78549 ns/op	     176 B/op	       3 allocs/op
 BenchmarkPoint/s11n/UncompressedBytes-16                   	  192446	      5517 ns/op	       0 B/op	       0 allocs/op
 BenchmarkPoint/s11n/CompressedBytes-16                     	  219115	      5520 ns/op	       0 B/op	       0 allocs/op
 ```
 
-"It's alright".  `dcrd/dcrec/secp256k1` is marginally faster (back of
-the envelope performance for `u1 * G + u2 * P` is approx 81 us on my
-system), but that implementation does not have any constant time curve
-operations.  If 4-5 usec verification performance matters that much,
-patch the package to switch to the 8.53x larger table.
+"It's alright".  Compared to `dcrd/dcrec/secp256k1` (aka `btcec`),
+verification performance is basically the same, signing is slower, ECDH
+ranges from slightly faster (on x86-64) to slower (purego).  On the other
+hand, this library is timing side-channel safe on reasonable architectures.
 
 Potential improvements:
 - Sit and wait for Go 1.21 to come out, it seems to do better.
-- This could use a hilariously oversized table for the variable-time
-scalar-basepoint multiply like dcrec (512 KiB vs 60 KiB).
 - In theory [Bernstein-Yang inversion][6] should be faster than addition
 chain based ones, and fiat provides a divstep implementation.  Figure out
 why it is considerably (approx 2.5x) slower in practice.
