@@ -3,6 +3,7 @@ package secp256k1
 import (
 	_ "embed"
 	"fmt"
+	"unsafe"
 
 	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
 	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
@@ -101,21 +102,6 @@ var generatorHugeAffineTable = func() *[ScalarSize]hugeAffinePointMultTable {
 	return tbl
 }()
 
-// SelectAndAdd sets `sum = sum + idx * P`, and returns `sum`. idx MUST
-// be in the range of `[0, 15]`.
-func (tbl *hugeAffinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
-	var ap affinePoint
-	isInfinity := helpers.Uint64IsZero(idx)
-	lookupAffinePoint(&tbl[0], &ap, idx)
-
-	// The formula is incorrect for the point at infinity, so store
-	// the result in a temporary value...
-	tmp := newRcvr().addMixed(sum, &ap.x, &ap.y)
-
-	// ... and conditionally select the correct result.
-	return sum.uncheckedConditionalSelect(tmp, sum, isInfinity)
-}
-
 // SelectAndAddVartime sets `sum = sum + idx * P`, and returns `sum` in
 // variable time.  idx MUST be in the range of `[0, 255]`.
 func (tbl *hugeAffinePointMultTable) SelectAndAddVartime(sum *Point, idx uint64) *Point {
@@ -135,7 +121,7 @@ type affinePointMultTable [15]affinePoint
 func (tbl *affinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
 	var ap affinePoint
 	isInfinity := helpers.Uint64IsZero(idx)
-	lookupAffinePoint(&tbl[0], &ap, idx)
+	lookupAffinePoint(tbl, &ap, idx)
 
 	// The formula is incorrect for the point at infinity, so store
 	// the result in a temporary value...
@@ -187,14 +173,23 @@ func (v *Point) ScalarBaseMult(s *Scalar) *Point {
 	// tables are shared with the large variable time lookup table,
 	// and a separate table is built for the odd-indexed tables, to
 	// simplify the constant time lookup code.
-	evenTbl := generatorHugeAffineTable
-	oddTbl := generatorOddAffineTable
+	evenTbls := generatorHugeAffineTable
+	oddTbls := generatorOddAffineTable
 
 	v.Identity()
 	for i, b := range s.Bytes() {
 		tblIdx := ScalarSize - (1 + i)
-		oddTbl[tblIdx].SelectAndAdd(v, uint64(b>>4))
-		evenTbl[tblIdx].SelectAndAdd(v, uint64(b&0xf))
+		oddTbls[tblIdx].SelectAndAdd(v, uint64(b>>4))
+
+		// generatorHugeAffineTable stores [1P, ... 255P], while the
+		// lookup routine expects an affinePointMultTable which stores
+		// [1P, ... 15P].
+		//
+		// Since what we have is a strict superset of the other, and
+		// the lookup ranges are hardcoded, we can cast our way past
+		// code duplication.
+		evenTbl := (*affinePointMultTable)(unsafe.Pointer(&evenTbls[tblIdx]))
+		evenTbl.SelectAndAdd(v, uint64(b&0xf))
 	}
 
 	return v

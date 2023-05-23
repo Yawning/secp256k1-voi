@@ -6,4 +6,4 @@ package secp256k1
 func lookupProjectivePoint(tbl *projectivePointMultTable, out *Point, idx uint64)
 
 //go:noescape
-func lookupAffinePoint(tbl *affinePoint, out *affinePoint, idx uint64)
+func lookupAffinePoint(tbl *affinePointMultTable, out *affinePoint, idx uint64)
