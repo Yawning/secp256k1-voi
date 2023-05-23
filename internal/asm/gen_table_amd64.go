@@ -112,7 +112,7 @@ func lookupAffinePoint() {
 	TEXT(
 		"lookupAffinePoint",
 		NOSPLIT|NOFRAME,
-		"func(tbl *affinePointMultTable, out *affinePoint, idx uint64)",
+		"func(tbl *affinePoint, out *affinePoint, idx uint64)",
 	)
 
 	Comment(

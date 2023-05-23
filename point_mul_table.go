@@ -64,20 +64,18 @@ type affinePoint struct {
 	x, y field.Element
 }
 
-// hugeAffinePointMultTable stores a series of 32 tables, of precomputed
-// multiples of G [1G, ... 255G].  Each successive table is the previous
-// table doubled 8 times.
-type hugeAffinePointMultTable [32][255]affinePoint
+// hugeAffinePointMultTable stores precomputed multiples [1P, ... 255P].
+type hugeAffinePointMultTable [255]affinePoint
 
 //go:embed internal/gentable/point_mul_table.bin
 var generatorHugeAffineTableBytes []byte
 
-var generatorHugeAffineTable = func() hugeAffinePointMultTable {
+var generatorHugeAffineTable = func() *[ScalarSize]hugeAffinePointMultTable {
 	var (
 		off int
 		err error
 	)
-	var tbl hugeAffinePointMultTable
+	tbl := new([ScalarSize]hugeAffinePointMultTable)
 	for i := range tbl {
 		for j := range tbl[i] {
 			xBytes := generatorHugeAffineTableBytes[off : off+field.ElementSize]
@@ -97,38 +95,29 @@ var generatorHugeAffineTable = func() hugeAffinePointMultTable {
 	return tbl
 }()
 
-// XXX: This is totally redundant with generatorHugeAffineTable.  At a
-// minimum, the huge table can be used as-is for even indexed tables,
-// which would cut the size of this in half.
-var generatorSmallAffineTable = func() *[ScalarSize * 2]affinePointMultTable {
-	tbl := new([ScalarSize * 2]affinePointMultTable)
-	for i := 0; i < ScalarSize; i++ {
-		fromTbl := &generatorHugeAffineTable[i]
+// SelectAndAdd sets `sum = sum + idx * P`, and returns `sum`. idx MUST
+// be in the range of `[0, 15]`.
+func (tbl *hugeAffinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
+	var ap affinePoint
+	isInfinity := helpers.Uint64IsZero(idx)
+	lookupAffinePoint(&tbl[0], &ap, idx)
 
-		for j := 0; j < 15; j++ {
-			tbl[i*2][j].x.Set(&fromTbl[j].x)
-			tbl[i*2][j].y.Set(&fromTbl[j].y)
-		}
+	// The formula is incorrect for the point at infinity, so store
+	// the result in a temporary value...
+	tmp := newRcvr().addMixed(sum, &ap.x, &ap.y)
 
-		for j := 0; j < 15; j++ {
-			fromIdx := (16 + j<<4) - 1
-			tbl[i*2+1][j].x.Set(&fromTbl[fromIdx].x)
-			tbl[i*2+1][j].y.Set(&fromTbl[fromIdx].y)
-		}
-	}
-
-	return tbl
-}()
+	// ... and conditionally select the correct result.
+	return sum.uncheckedConditionalSelect(tmp, sum, isInfinity)
+}
 
 // SelectAndAddVartime sets `sum = sum + idx * P`, and returns `sum` in
-// variable time.  tableIdx MUST be in the range of `[0, 32)` and idx
-// MUST be in the range of `[0, 255]`.
-func (tbl *hugeAffinePointMultTable) SelectAndAddVartime(sum *Point, tableIdx int, idx uint64) *Point {
+// variable time.  idx MUST be in the range of `[0, 255]`.
+func (tbl *hugeAffinePointMultTable) SelectAndAddVartime(sum *Point, idx uint64) *Point {
 	if idx == 0 {
 		return sum
 	}
 
-	p := &tbl[tableIdx][idx-1]
+	p := &tbl[idx-1]
 	return sum.addMixed(sum, &p.x, &p.y)
 }
 
@@ -140,7 +129,7 @@ type affinePointMultTable [15]affinePoint
 func (tbl *affinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
 	var ap affinePoint
 	isInfinity := helpers.Uint64IsZero(idx)
-	lookupAffinePoint(tbl, &ap, idx)
+	lookupAffinePoint(&tbl[0], &ap, idx)
 
 	// The formula is incorrect for the point at infinity, so store
 	// the result in a temporary value...
@@ -150,25 +139,48 @@ func (tbl *affinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
 	return sum.uncheckedConditionalSelect(tmp, sum, isInfinity)
 }
 
+// This stores the odd-indexed doubled tables of precomputed multiples of
+// G, such that interleaved with generatorHugeAffineTable one ends up
+// with a series of 64 tables of precomputed multiples of G [1G, ... 15G],
+// with each successive table being the previous table doubled 4 times.
+//
+// As in:
+//
+//	generatorHugeAffineTable[0] = [1G, ... 15G]
+//	generatorOddAffineTable[0]  = [1G, ... 15G] * 16
+//	generatorHugeAffineTable[1] = [1G, ... 15G] * 256
+//	generatorOddAffineTable[0]  = [1G, ... 15G] * 4096
+//	...
+var generatorOddAffineTable = func() *[ScalarSize]affinePointMultTable {
+	tbl := new([ScalarSize]affinePointMultTable)
+	for i := 0; i < ScalarSize; i++ {
+		fromTbl := &generatorHugeAffineTable[i]
+
+		for j := 0; j < 15; j++ {
+			fromIdx := (16 + j<<4) - 1
+			tbl[i][j].x.Set(&fromTbl[fromIdx].x)
+			tbl[i][j].y.Set(&fromTbl[fromIdx].y)
+		}
+	}
+
+	return tbl
+}()
+
+//
 // The various "simple" scalar point multiplication routines.
 //
-// Note: `assertPointsValid` is checked once and only once (as part of)
-// building the table, and `v.isValid` is set once (and not overwritten)
-// when it is initialized to the point at infinity.
 
 // ScalarBaseMult sets `v = s * G`, and returns `v`, where `G` is the
 // generator.
 func (v *Point) ScalarBaseMult(s *Scalar) *Point {
-	tbl := generatorSmallAffineTable
+	evenTbl := generatorHugeAffineTable
+	oddTbl := generatorOddAffineTable
 
 	v.Identity()
-	tableIndex := len(tbl) - 1
-	for _, b := range s.Bytes() {
-		tbl[tableIndex].SelectAndAdd(v, uint64(b>>4))
-		tableIndex--
-
-		tbl[tableIndex].SelectAndAdd(v, uint64(b&0xf))
-		tableIndex--
+	for i, b := range s.Bytes() {
+		tblIdx := ScalarSize - (1 + i)
+		oddTbl[tblIdx].SelectAndAdd(v, uint64(b>>4))
+		evenTbl[tblIdx].SelectAndAdd(v, uint64(b&0xf))
 	}
 
 	return v
@@ -176,10 +188,11 @@ func (v *Point) ScalarBaseMult(s *Scalar) *Point {
 
 // scalarBaseMultVartime sets `v = s * G`, and returns `v` in variable time.
 func (v *Point) scalarBaseMultVartime(s *Scalar) *Point {
+	tbl := generatorHugeAffineTable
+
 	v.Identity()
 	for i, b := range s.Bytes() {
-		tableIdx := ScalarSize - (1 + i)
-		generatorHugeAffineTable.SelectAndAddVartime(v, tableIdx, uint64(b))
+		tbl[ScalarSize-(1+i)].SelectAndAddVartime(v, uint64(b))
 	}
 
 	return v

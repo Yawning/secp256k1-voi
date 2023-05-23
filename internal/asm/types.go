@@ -5,6 +5,5 @@ type (
 	projectivePointMultTable struct{}
 	Point                    struct{}
 
-	affinePointMultTable struct{}
-	affinePoint          struct{}
+	affinePoint struct{}
 )

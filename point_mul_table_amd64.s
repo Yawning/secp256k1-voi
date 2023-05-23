@@ -72,7 +72,7 @@ projectiveLookupLoop:
 	MOVOU X7, 80(AX)
 	RET
 
-// func lookupAffinePoint(tbl *affinePointMultTable, out *affinePoint, idx uint64)
+// func lookupAffinePoint(tbl *affinePoint, out *affinePoint, idx uint64)
 // Requires: SSE2
 TEXT ·lookupAffinePoint(SB), NOSPLIT|NOFRAME, $0-24
 	// This is nice and easy, since it is 2x32-bytes, so this fits
