@@ -308,7 +308,12 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	case typeEcdsaVerify:
 		sigOkOneshot = publicKey.VerifyASN1(hBytes, sigBytes)
 	case typeEcdsaShitcoinVerify:
-		sigOkOneshot = publicKey.VerifyASN1Shitcoin(hBytes, sigBytes)
+		// Shitcoin adds a sighash to the end of signatures, that
+		// IsValidShitcoinSignatureEncoding expects in all the
+		// length checks.
+		bipSig := append([]byte{}, sigBytes...)
+		bipSig = append(bipSig, 69)
+		sigOkOneshot = publicKey.VerifyASN1Shitcoin(hBytes, bipSig)
 	}
 	require.EqualValues(t, !mustFail, sigOkOneshot, "one-shot signature verification: %+v", tc.Flags)
 

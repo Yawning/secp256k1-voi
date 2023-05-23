@@ -73,18 +73,15 @@ func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
 	return nil == verify(k, hash, r, s)
 }
 
-// VerifyASN1Shitcoin verifies the ASN.1 encoded signature `sig` of `hash`,
-// using the PublicKey `k`, using the verification procedure as specifed
-// in SEC 1, Version 2.0, Section 4.1.4, with the additional restriction
-// that `s` MUST be less than or equal to `n / 2`.  Its return value
-// records whether the signature is valid.
+// VerifyASN1Shitcoin verifies the BIP-0066 encoded signature `sig` of
+// `hash`, using the PublicKey `k`, using the verification procedure
+// as specifed in SEC 1, Version 2.0, Section 4.1.4, with the additional
+// restriction that `s` MUST be less than or equal to `n / 2`.
+// Its return value records whether the signature is valid.
+//
+// Note: The signature MUST have the trailing `sighash` byte.
 func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
-	// TODO: Looking at BIP-0066, the checks done appear to match
-	// parseASN1Signature's behavior, but this probably needs more
-	// testing.
-	//
-	// However, "Zero, zero fucks given.  Ah Ah Ah.".
-	r, s, err := parseASN1Signature(sig)
+	r, s, err := parseASN1SignatureShitcoin(sig)
 	if err != nil {
 		return false
 	}
