@@ -71,6 +71,9 @@ type hugeAffinePointMultTable [255]affinePoint
 var generatorHugeAffineTableBytes []byte
 
 var generatorHugeAffineTable = func() *[ScalarSize]hugeAffinePointMultTable {
+	// Unpack the pre-generated multiple tables.  nistec's assembly
+	// implementations just point into the table, and do fixups as
+	// needed to handle byte-order, but just deserializing is easier.
 	var (
 		off int
 		err error
@@ -92,6 +95,9 @@ var generatorHugeAffineTable = func() *[ScalarSize]hugeAffinePointMultTable {
 			}
 		}
 	}
+
+	generatorHugeAffineTableBytes = nil // Maybe the GC will prune this.
+
 	return tbl
 }()
 
@@ -144,12 +150,16 @@ func (tbl *affinePointMultTable) SelectAndAdd(sum *Point, idx uint64) *Point {
 // with a series of 64 tables of precomputed multiples of G [1G, ... 15G],
 // with each successive table being the previous table doubled 4 times.
 //
+// In theory there is no reason why `generatorHugeAffineTable` can't be
+// used here, but that would complicate the vectorized lookup, and the
+// memory cost for having this separate table is only 30 KiB.
+//
 // As in:
 //
 //	generatorHugeAffineTable[0] = [1G, ... 15G]
-//	generatorOddAffineTable[0]  = [1G, ... 15G] * 16
+//	 generatorOddAffineTable[0] = [1G, ... 15G] * 16
 //	generatorHugeAffineTable[1] = [1G, ... 15G] * 256
-//	generatorOddAffineTable[0]  = [1G, ... 15G] * 4096
+//	 generatorOddAffineTable[1] = [1G, ... 15G] * 4096
 //	...
 var generatorOddAffineTable = func() *[ScalarSize]affinePointMultTable {
 	tbl := new([ScalarSize]affinePointMultTable)
@@ -162,7 +172,6 @@ var generatorOddAffineTable = func() *[ScalarSize]affinePointMultTable {
 			tbl[i][j].y.Set(&fromTbl[fromIdx].y)
 		}
 	}
-
 	return tbl
 }()
 
@@ -173,6 +182,11 @@ var generatorOddAffineTable = func() *[ScalarSize]affinePointMultTable {
 // ScalarBaseMult sets `v = s * G`, and returns `v`, where `G` is the
 // generator.
 func (v *Point) ScalarBaseMult(s *Scalar) *Point {
+	// This uses a 4-bit window, with all of the multiples precomputed
+	// to entirely eliminate point doubling operations.  The even-indexed
+	// tables are shared with the large variable time lookup table,
+	// and a separate table is built for the odd-indexed tables, to
+	// simplify the constant time lookup code.
 	evenTbl := generatorHugeAffineTable
 	oddTbl := generatorOddAffineTable
 
@@ -188,6 +202,11 @@ func (v *Point) ScalarBaseMult(s *Scalar) *Point {
 
 // scalarBaseMultVartime sets `v = s * G`, and returns `v` in variable time.
 func (v *Point) scalarBaseMultVartime(s *Scalar) *Point {
+	// This uses a 8-bit window, with all of the multiples precomputed
+	// to entirely eliminate point doubling operations.  Unlike in the
+	// constant-time case, a huge table here pays off since there is no
+	// need to scan the entire table for timing-sidechannel mitigation
+	// reasons.
 	tbl := generatorHugeAffineTable
 
 	v.Identity()
