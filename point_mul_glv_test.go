@@ -41,10 +41,7 @@ func testScalarSplit(t *testing.T) {
 		newScalarFromSaturated(0x26c75a9980b861c1, 0x4a4c38051024c8b4, 0x704d760ee95e7cd3, 0xde1bfdb1ce2c5a45),
 	} {
 		t.Run(fmt.Sprintf("Case %d", i), func(t *testing.T) {
-			// t.Logf("Scalar: %v", v)
 			k1, k2 := v.splitGLV()
-			// t.Logf("k1: %v", k1)
-			// t.Logf("k2: %v", k2)
 
 			// k = k1 + k2 * lambda mod n
 			k := NewScalar().Multiply(k2, lambda)

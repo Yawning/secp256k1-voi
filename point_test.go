@@ -14,13 +14,11 @@ const randomTestIters = 1000
 
 func TestPoint(t *testing.T) {
 	t.Run("S11n", testPointS11n)
-	// Add
-	// Double
-	// Subtract
+	t.Run("Add", testPointAdd)
+	t.Run("Double", testPointDouble)
+	t.Run("Subtract", testPointSubtract)
 	t.Run("ScalarMult", testPointScalarMult)
 	t.Run("ScalarBaseMult", testPointScalarBaseMult)
-	// ConditionalSelect
-	// Equal
 
 	t.Run("GLV/Split", testScalarSplit)
 }
@@ -38,6 +36,7 @@ func testPointS11n(t *testing.T) {
 	})
 	t.Run("G uncompressed", func(t *testing.T) {
 		gUncompressed := helpers.MustBytesFromHex("0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8")
+
 		p, err := NewPointFromBytes(gUncompressed)
 		require.NoError(t, err, "NewPointFromBytes(gUncompressed)")
 		requirePointDeepEquals(t, NewGeneratorPoint(), p, "G")
@@ -60,10 +59,102 @@ func testPointS11n(t *testing.T) {
 		require.NoError(t, err, "NewPointFromBytes(idUncompressed)")
 		requirePointDeepEquals(t, NewIdentityPoint(), p, "NewPointFromBytes(idCompressed)")
 	})
+	t.Run("NewPointFromCoords", func(t *testing.T) {
+		p, err := NewPointFromCoords((*[CoordSize]byte)(gX.Bytes()), (*[CoordSize]byte)(gY.Bytes()))
+		require.NoError(t, err, "NewPointFromCoords(gX, gY)")
+
+		requirePointEquals(t, NewGeneratorPoint(), p, "NewPointFromCoords(gX, gY)")
+	})
+	t.Run("XBytes", func(t *testing.T) {
+		g := NewGeneratorPoint()
+		b, err := g.XBytes()
+		require.NoError(t, err, "g.XBytes()")
+
+		require.EqualValues(t, gX.Bytes(), b, "g.XBytes()")
+	})
 
 	// TODO:
 	// - Add more compressed point test cases.
 	// - Test edge cases for good measure (eg: x >= p)
+}
+
+func testPointAdd(t *testing.T) {
+	t.Run("a + 0", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+		id := NewIdentityPoint()
+
+		aId := newRcvr().Add(a, id)
+		idA := newRcvr().Add(id, a)
+
+		requirePointEquals(t, a, aId, "a + 0 = a")
+		requirePointEquals(t, a, idA, "0 + a = a")
+	})
+	t.Run("a + a", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+
+		sum := newRcvr().Add(a, a)
+		product := newRcvr().Double(a)
+
+		requirePointEquals(t, product, sum, "2 * a = a + a")
+	})
+	t.Run("a + b", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+		b := newRcvr().MustRandomize()
+
+		ab := newRcvr().Add(a, b)
+		ba := newRcvr().Add(b, a)
+
+		requirePointEquals(t, ab, ba, "a + b = b + a")
+	})
+}
+
+func testPointDouble(t *testing.T) {
+	t.Run("2 * 0", func(t *testing.T) {
+		id := NewIdentityPoint()
+
+		product := newRcvr().Double(id)
+
+		requirePointEquals(t, id, product, "0 = 2 * 0")
+	})
+	t.Run("2 * a", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+
+		product := newRcvr().Double(a)
+		sum := newRcvr().Add(a, a)
+
+		requirePointEquals(t, sum, product, "a + a = 2 * a")
+	})
+}
+
+func testPointSubtract(t *testing.T) {
+	t.Run("a - 0", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+		negA := newRcvr().Negate(a)
+		id := NewIdentityPoint()
+
+		aId := newRcvr().Subtract(a, id)
+		idA := newRcvr().Subtract(id, a)
+
+		requirePointEquals(t, a, aId, "a - 0 = a")
+		requirePointEquals(t, negA, idA, "0 - a = -a")
+	})
+	t.Run("a - a", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+
+		diff := newRcvr().Subtract(a, a)
+
+		requirePointEquals(t, NewIdentityPoint(), diff, "0 = a - a")
+	})
+	t.Run("a - b", func(t *testing.T) {
+		a := newRcvr().MustRandomize()
+		b := newRcvr().MustRandomize()
+		negB := newRcvr().Negate(b)
+
+		ab := newRcvr().Subtract(a, b)
+		aNegB := newRcvr().Add(a, negB)
+
+		requirePointEquals(t, ab, aNegB, "a - b = a + (-b)")
+	})
 }
 
 func testPointScalarMult(t *testing.T) {
@@ -177,8 +268,13 @@ func testPointScalarBaseMult(t *testing.T) {
 }
 
 func (v *Point) MustRandomize() *Point {
-	s := NewScalar().MustRandomize()
-	return v.ScalarBaseMult(s)
+	for {
+		s := NewScalar().MustRandomize()
+		if s.IsZero() != 0 {
+			continue
+		}
+		return v.ScalarBaseMult(s)
+	}
 }
 
 func (v *Point) MustRandomizeZ() *Point {

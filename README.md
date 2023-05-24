@@ -18,13 +18,8 @@ are produced by [addchain][2].
 ["Complete addition formulas for prime order elliptic curves"][3] by
 Renes, Costello, and Batina are used.
 
-#### WARNING
-
-***DO NOT USE THIS PACKAGE FOR ANYTHING***
-
 #### Notes
 
-- Yes, this needs a lot more test cases.
 - No, this has not been audited.  Unless you are willing to pay for it,
 do not ask about it.  If you do not know how much that will cost, you
 can not afford it.

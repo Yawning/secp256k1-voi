@@ -15,6 +15,7 @@ const wantedEntropyBytes = 256 / 8
 var (
 	errInvalidScalar = errors.New("secp256k1/secec/ecdsa: invalid scalar")
 	errInvalidDigest = errors.New("secp256k1/secec/ecdsa: invalid digest")
+	errInvalidRorS   = errors.New("secp256k1.secec.ecdsa: r or s is zero")
 	errRIsInfinity   = errors.New("secp256k1/secec/ecdsa: R is the point at infinity")
 	errVNeqR         = errors.New("secp256k1/secec/ecdsa: v does not equal r")
 )
@@ -49,10 +50,6 @@ func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 // Version 2.0, Section 4.1.4.  Its return value records whether the
 // signature is valid.
 func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
-	if r.IsZero() != 0 || s.IsZero() != 0 {
-		return false
-	}
-
 	return nil == verify(k, hash, r, s)
 }
 
@@ -70,7 +67,7 @@ func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
 		return false
 	}
 
-	return nil == verify(k, hash, r, s)
+	return k.Verify(hash, r, s)
 }
 
 // VerifyASN1Shitcoin verifies the BIP-0066 encoded signature `sig` of
@@ -90,7 +87,7 @@ func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
 		return false
 	}
 
-	return nil == verify(k, hash, r, s)
+	return k.Verify(hash, r, s)
 }
 
 func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
@@ -199,9 +196,13 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	// 1. If r and s are not both integers in the interval [1, n − 1],
 	// output “invalid” and stop.
 	//
-	// Note/yawning: (r, s) are provided as inputs, and they are
-	// guaranteed to be in the appropriate range by the time they
-	// get to this routine.
+	// Note/yawning: This is somewhat redundant because the various
+	// ASN.1 parsing routines reject these, but we also support
+	// verifying user supplied (r, s), so just check again.
+
+	if r.IsZero() != 0 || s.IsZero() != 0 {
+		return errInvalidRorS
+	}
 
 	// 2. Use the hash function established during the setup procedure
 	// to compute the hash value:

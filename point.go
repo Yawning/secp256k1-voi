@@ -19,6 +19,10 @@ var (
 // Point represets a point on the secp256k1 curve.  All arguments and
 // receivers are allowed to alias.  The zero value is NOT valid, and
 // may only be used as a receiver.
+//
+// Properly initialized Points will always either be on the curve, or
+// the point at infinity, and all of the curve arithmetic routines
+// handle the point at infinity correctly.
 type Point struct {
 	_ disalloweq.DisallowEqual
 
