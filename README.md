@@ -18,6 +18,19 @@ are produced by [addchain][2].
 ["Complete addition formulas for prime order elliptic curves"][3] by
 Renes, Costello, and Batina are used.
 
+#### Features
+
+- Formally verified field and scalar arithmetic.
+- Constant time curve and scalar operations unless explicitly noted otherwise.
+- Fast `s * G` routine using precomputed tables.
+- Fast variable-time `u1 * G + u2 * P` routine for signature verification.
+- Safe-by-default API, that makes it extremely hard to create invalid points
+and scalars.
+- Point s11n per SEC 1, Version 2.0, Section 2.3.3.
+- ECDH per SEC 1, Version 2.0, Section 3.3.1.
+- ECDSA per SEC 1, Version 2.0, Section 4.1.3/4.1.4 and BIP-0066.
+- Schnorr signatures per BIP-0340.
+
 #### Notes
 
 - No, this has not been audited.  Unless you are willing to pay for it,
@@ -63,6 +76,7 @@ Potential improvements:
 - In theory [Bernstein-Yang inversion][6] should be faster than addition
 chain based ones, and fiat provides a divstep implementation.  Figure out
 why it is considerably (approx 2.5x) slower in practice.
+- wNAF based point multiplication is probably a gain.
 - Go and add "multiply a field element by a small integer" to fiat.
 
 [1]: https://github.com/mit-plv/fiat-crypto
