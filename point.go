@@ -1,4 +1,5 @@
-// Package secp256k1 implements the shitcoin elliptic curve.
+// Package secp256k1 implements the shitcoin elliptic curve as specified
+// in SEC 2, Version 2.0, Section 2.4.1.
 package secp256k1
 
 import (
@@ -140,7 +141,7 @@ func (v *Point) Equal(p *Point) uint64 {
 	return x1z2.Equal(x2z1) & y1z2.Equal(y2z1)
 }
 
-// IsIdentity returns 1 iff v is the identity point, 0 otherwise.
+// IsIdentity returns 1 iff `v` is the identity point, 0 otherwise.
 func (v *Point) IsIdentity() uint64 {
 	assertPointsValid(v)
 

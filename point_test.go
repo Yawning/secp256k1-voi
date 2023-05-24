@@ -19,6 +19,7 @@ func TestPoint(t *testing.T) {
 	t.Run("Subtract", testPointSubtract)
 	t.Run("ScalarMult", testPointScalarMult)
 	t.Run("ScalarBaseMult", testPointScalarBaseMult)
+	t.Run("DoubleScalarMultBasepointVartime", testPointDoubleScalarMultBasepointVartime)
 
 	t.Run("GLV/Split", testScalarSplit)
 }
@@ -72,10 +73,6 @@ func testPointS11n(t *testing.T) {
 
 		require.EqualValues(t, gX.Bytes(), b, "g.XBytes()")
 	})
-
-	// TODO:
-	// - Add more compressed point test cases.
-	// - Test edge cases for good measure (eg: x >= p)
 }
 
 func testPointAdd(t *testing.T) {
@@ -263,6 +260,30 @@ func testPointScalarBaseMult(t *testing.T) {
 			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: s * G (trivial) != s * G (ct)", i))
 			requirePointEquals(t, p1, p2, fmt.Sprintf("[%d]: s * G (ct) != s * G (vartime)", i))
 			requirePointEquals(t, p1, p3, fmt.Sprintf("[%d]: s * G (ct) != s * G (generic, ct)", i))
+		}
+	})
+}
+
+func testPointDoubleScalarMultBasepointVartime(t *testing.T) {
+	t.Run("Consistency", func(t *testing.T) {
+		var u1, u2 Scalar
+		check, tmp, p, p1, g := newRcvr(), newRcvr(), newRcvr(), newRcvr(), NewGeneratorPoint()
+
+		for i := 0; i < randomTestIters; i++ {
+			u1.MustRandomize()
+			u2.MustRandomize()
+			p.MustRandomize()
+
+			tmp.scalarMultTrivial(&u1, g)
+			check.scalarMultTrivial(&u2, p)
+			check.Add(tmp, check)
+
+			p.MustRandomizeZ()
+			p1.DoubleScalarMultBasepointVartime(&u1, &u2, p)
+
+			g.MustRandomizeZ()
+
+			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: u1 * G + u2 * P (trivial) != u1 * G + u2 * P (one-shot)", i))
 		}
 	})
 }
