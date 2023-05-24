@@ -17,8 +17,9 @@ import (
 type PrivateKey struct {
 	_ disalloweq.DisallowEqual
 
-	scalar    *secp256k1.Scalar // INVARIANT: Always [1,n)
-	publicKey *PublicKey
+	scalar           *secp256k1.Scalar // INVARIANT: Always [1,n)
+	publicKey        *PublicKey
+	schnorrPublicKey *SchnorrPublicKey
 }
 
 // Bytes returns a copy of the encoding of the private key.
@@ -58,6 +59,10 @@ func (k *PrivateKey) Public() crypto.PublicKey {
 
 func (k *PrivateKey) PublicKey() *PublicKey {
 	return k.publicKey
+}
+
+func (k *PrivateKey) SchnorrPublicKey() *SchnorrPublicKey {
+	return k.schnorrPublicKey
 }
 
 // PublicKey is a secp256k1 public key.
@@ -100,7 +105,11 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 func (k *PublicKey) IsYOdd() bool {
 	// Since the PublicKey caches the uncompressed point, this
 	// is simple and fast.
-	return k.pointBytes[secp256k1.UncompressedPointSize-1]&1 == 1
+	return k.isYOdd() != 0
+}
+
+func (k *PublicKey) isYOdd() uint64 {
+	return uint64(k.pointBytes[secp256k1.UncompressedPointSize-1] & 1)
 }
 
 // GenerateKey generates a new PrivateKey from `rand`.
@@ -142,6 +151,7 @@ func newPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
 		},
 	}
 	privateKey.publicKey.pointBytes = privateKey.publicKey.point.UncompressedBytes()
+	privateKey.schnorrPublicKey = newSchnorrPublicKeyFromPrivateKey(privateKey)
 
 	return privateKey, nil
 }

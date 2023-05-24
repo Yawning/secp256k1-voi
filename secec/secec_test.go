@@ -71,6 +71,29 @@ func TestSecec(t *testing.T) {
 		require.False(t, ok, "VerifyASN1 - Corrupted h")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
+	t.Run("Schnorr", func(t *testing.T) {
+		priv, err := GenerateKey(rand.Reader)
+		require.NoError(t, err, "GenerateKey")
+
+		pub := priv.SchnorrPublicKey()
+
+		sig, err := priv.SignSchnorr(rand.Reader, testMessageHash)
+		require.NoError(t, err, "SignSchnorr")
+
+		ok := pub.Verify(testMessageHash, sig)
+		require.True(t, ok, "Verify")
+
+		tmp := append([]byte{}, sig...)
+		tmp[0] ^= 0x69
+		ok = pub.Verify(testMessageHash, tmp)
+		require.False(t, ok, "Verify - Corrupted sig")
+
+		tmp = append([]byte{}, testMessageHash...)
+		tmp[0] ^= 0x69
+		ok = pub.Verify(tmp, sig)
+		require.False(t, ok, "Verify - Corrupted msg")
+	})
+	t.Run("Schnorr/TestVectors", testSchnorrKAT)
 }
 
 func BenchmarkSecec(b *testing.B) {
@@ -81,9 +104,13 @@ func BenchmarkSecec(b *testing.B) {
 	randomPriv2, err := GenerateKey(rand.Reader)
 	require.NoError(b, err)
 	randomPub := randomPriv2.PublicKey()
+	randomSchnorrPub := randomPriv2.SchnorrPublicKey()
 	randomPublicBytes := randomPub.Bytes()
 
 	randomSig, err := randomPriv2.SignASN1(rand.Reader, testMessageHash)
+	require.NoError(b, err)
+
+	randomSchnorrSig, err := randomPriv2.SignSchnorr(rand.Reader, testMessageHash)
 	require.NoError(b, err)
 
 	b.Run("GenerateKey", func(b *testing.B) {
@@ -138,6 +165,14 @@ func BenchmarkSecec(b *testing.B) {
 				_, _ = randomPriv.SignASN1(rand.Reader, testMessageHash)
 			}
 		})
+		b.Run("SignSchnorr", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, _ = randomPriv.SignSchnorr(rand.Reader, testMessageHash)
+			}
+		})
 	})
 	b.Run("PublicKey", func(b *testing.B) {
 		b.Run("Bytes", func(b *testing.B) {
@@ -154,6 +189,15 @@ func BenchmarkSecec(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				ok := randomPub.VerifyASN1(testMessageHash, randomSig)
+				require.True(b, ok)
+			}
+		})
+		b.Run("VerifySchnorr", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				ok := randomSchnorrPub.Verify(testMessageHash, randomSchnorrSig)
 				require.True(b, ok)
 			}
 		})

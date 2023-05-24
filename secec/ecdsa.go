@@ -1,6 +1,7 @@
 package secec
 
 import (
+	csrand "crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -24,7 +25,7 @@ var (
 )
 
 // Sign signs signs `hash` (which should be the result of hashing a
-// larger message) using the PrivateKey `k`, using the signing procudure
+// larger message) using the PrivateKey `k`, using the signing procedure
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // tuple of scalars `(r, s)`.
 //
@@ -325,6 +326,10 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, hBytes []b
 	// See:
 	// - https://eprint.iacr.org/2020/615.pdf
 	// - https://eprint.iacr.org/2019/1155.pdf
+
+	if rand == nil {
+		rand = csrand.Reader
+	}
 
 	var tmp [wantedEntropyBytes]byte
 	if _, err := io.ReadFull(rand, tmp[:]); err != nil {

@@ -148,6 +148,14 @@ func (v *Point) IsIdentity() uint64 {
 	return v.z.IsZero()
 }
 
+// IsYOdd returns 1 iff `v.y` is odd, 0 otherwise.
+func (v *Point) IsYOdd() uint64 {
+	assertPointsValid(v)
+
+	scaled := newRcvr().rescale(v) // XXX/perf: Don't need to rescale X.
+	return scaled.y.IsOdd()
+}
+
 // Set sets `v = p`, and returns `v`.
 func (v *Point) Set(p *Point) *Point {
 	assertPointsValid(p)
