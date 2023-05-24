@@ -10,7 +10,10 @@ import (
 	"gitlab.com/yawning/secp256k1-voi.git"
 )
 
-const wantedEntropyBytes = 256 / 8
+const (
+	wantedEntropyBytes = 256 / 8
+	domainSepECDSA     = "ECDSA-Sign"
+)
 
 var (
 	errInvalidScalar = errors.New("secp256k1/secec/ecdsa: invalid scalar")
@@ -133,7 +136,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// to do, even if this wasn't something that has historically
 	// been a large problem.
 
-	fixedRng, err := mitigateDebianAndSony(rand, d, hBytes)
+	fixedRng, err := mitigateDebianAndSony(rand, domainSepECDSA, d, hBytes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -306,7 +309,7 @@ func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
 	return s, nil
 }
 
-func mitigateDebianAndSony(rand io.Reader, k *PrivateKey, hBytes []byte) (io.Reader, error) {
+func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, hBytes []byte) (io.Reader, error) {
 	// There are documented attacks that can exploit even the
 	// most subtle amounts of bias (< 1-bit) in the generation
 	// of the ECDSA nonce.
@@ -328,7 +331,7 @@ func mitigateDebianAndSony(rand io.Reader, k *PrivateKey, hBytes []byte) (io.Rea
 		return nil, fmt.Errorf("secp256k1: entropy source failure: %w", err)
 	}
 
-	xof := sha3.NewCShake256(nil, []byte("Honorary Debian/Sony RNG mitigation"))
+	xof := sha3.NewCShake256(nil, []byte("Honorary Debian/Sony RNG mitigation:"+ctx))
 	_, _ = xof.Write(k.scalar.Bytes())
 	_, _ = xof.Write(tmp[:])
 	_, _ = xof.Write(hBytes)
