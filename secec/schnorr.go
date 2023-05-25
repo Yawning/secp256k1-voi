@@ -149,18 +149,17 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 
 	// Note/yawning: Doing it this way saves repeated rescaling, since
 	// the curve implementation always does the inversion.
-	rBytes := R.UncompressedBytes()
-	rBytes = rBytes[1:] // Drop the prefix.
+	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
 
 	// Fail if not has_even_y(R).
-	if rBytes[len(rBytes)-1]&1 != 0 {
+	if rYIsOdd != 0 {
 		return false
 	}
 
 	// Fail if x(R) ≠ r.
 	//
 	// Note/yawning: Vartime compare, because this is verification.
-	if !bytes.Equal(rBytes[0:secp256k1.CoordSize], sigRBytes[:]) {
+	if !bytes.Equal(rXBytes, sigRBytes[:]) {
 		return false
 	}
 
@@ -253,13 +252,8 @@ func signSchnorr(auxRand []byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 	// and is used over sk.SchnorrPublicKey(), because the SchnorrPublicKey
 	// caches the result of lift_x for verification.
 
-	pubKey := sk.PublicKey()
-
 	// Let d = d' if has_even_y(P), otherwise let d = n - d' .
-
-	negateD := pubKey.isYOdd()
-
-	pBytes := pubKey.pointBytes[1 : 1+secp256k1.CoordSize]
+	pBytes, negateD := splitUncompressedPoint(sk.PublicKey().Bytes())
 	d := secp256k1.NewScalarFrom(sk.scalar)
 	d.ConditionalNegate(d, negateD)
 
@@ -282,21 +276,20 @@ func signSchnorr(auxRand []byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 
 	// Let R = k'⋅G.
 	R := secp256k1.NewIdentityPoint().ScalarBaseMult(kPrime)
-	rBytes, _ := R.XBytes() // Can't fail, kPrime != 0 -> R != Inf
+	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
 
 	// Let k = k' if has_even_y(R), otherwise let k = n - k' .
-	negateK := R.IsYOdd()
-	k := secp256k1.NewScalar().ConditionalNegate(kPrime, negateK)
+	k := secp256k1.NewScalar().ConditionalNegate(kPrime, rYIsOdd)
 
 	// Let e = int(hashBIP0340/challenge(bytes(R) || bytes(P) || m)) mod n.
-	eBytes := schnorrTaggedHash(schnorrTagChallenge, rBytes, pBytes, msg)
+	eBytes := schnorrTaggedHash(schnorrTagChallenge, rXBytes, pBytes, msg)
 	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
 
 	// Let sig = bytes(R) || bytes((k + ed) mod n).
 	sum := secp256k1.NewScalar().Multiply(e, d) // ed
 	sum.Add(k, sum)                             // k + ed
 	sig := make([]byte, 0, SchnorrSignatureSize)
-	sig = append(sig, rBytes...)
+	sig = append(sig, rXBytes...)
 	sig = append(sig, sum.Bytes()...)
 
 	// If Verify(bytes(P), m, sig) (see below) returns failure, abort[14].

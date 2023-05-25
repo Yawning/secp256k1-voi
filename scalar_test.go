@@ -11,6 +11,8 @@ import (
 	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
 )
 
+var scOne = NewScalar().One()
+
 func (s *Scalar) String() string {
 	x := hex.EncodeToString(s.Bytes())
 	return x

@@ -192,3 +192,13 @@ func NewPublicKeyFromPoint(point *secp256k1.Point) (*PublicKey, error) {
 		pointBytes: pt.UncompressedBytes(),
 	}, nil
 }
+
+func splitUncompressedPoint(ptBytes []byte) ([]byte, uint64) {
+	if len(ptBytes) != secp256k1.UncompressedPointSize {
+		panic("secp256k1/secec: invalid uncompressed point for split")
+	}
+	xBytes := ptBytes[1 : 1+secp256k1.CoordSize]
+	yIsOdd := uint64(ptBytes[len(ptBytes)-1] & 1)
+
+	return xBytes, yIsOdd
+}
