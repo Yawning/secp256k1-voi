@@ -27,10 +27,13 @@ var (
 // Sign signs signs `hash` (which should be the result of hashing a
 // larger message) using the PrivateKey `k`, using the signing procedure
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
-// tuple of scalars `(r, s)`.
+// tuple `(r, s, recovery_id)`.
 //
-// Note: `s` will always be less than or equal to n.
-func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
+// Note:
+// - `s` will always be less than or equal to n.
+// - `recovery_id` will always be in the range `[0, 3]`.  Adding `27`,
+// `31`, or the EIP-155 nonsense is left to the caller.
+func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
 	return sign(rand, k, hash)
 }
 
@@ -41,7 +44,7 @@ func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp
 //
 // Note: `s` will always be less than or equal to n.
 func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
-	r, s, err := k.Sign(rand, hash)
+	r, s, _, err := k.Sign(rand, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +97,9 @@ func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
 	return k.Verify(hash, r, s)
 }
 
-func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
+func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
+	var recoveryID byte
+
 	// Note/yawning: `e` (derived from `hash`) in steps 4 and 5, is
 	// unchanged throughout the process even if a different `k`
 	// needs to be selected, thus, the value is derived first
@@ -112,7 +117,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// Realistically everyone is going to use at least 256-bits.
 
 	if hLen := len(hBytes); hLen < 16 {
-		return nil, nil, errInvalidDigest
+		return nil, nil, 0, errInvalidDigest
 	}
 
 	// 5. Derive an integer e from H as follows:
@@ -139,31 +144,32 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 
 	fixedRng, err := mitigateDebianAndSony(rand, domainSepECDSA, d, hBytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 
-	var k, r, s *secp256k1.Scalar
+	var r, s *secp256k1.Scalar
 	for {
 		// 1. Select an ephemeral elliptic curve key pair (k, R) with
 		// R = (xR, yR) associated with the elliptic curve domain parameters
 		// T established during the setup procedure using the key pair
 		// generation primitive specified in Section 3.2.1.
 
-		k, err = sampleRandomScalar(fixedRng)
+		k, err := sampleRandomScalar(fixedRng)
 		if err != nil {
-			return nil, nil, fmt.Errorf("secp256k1/secec/ecdsa: failed to generate k: %w", err)
+			return nil, nil, 0, fmt.Errorf("secp256k1/secec/ecdsa: failed to generate k: %w", err)
 		}
 		R := secp256k1.NewIdentityPoint().ScalarBaseMult(k)
 
 		// 2. Convert the field element xR to an integer xR using the
 		// conversion routine specified in Section 2.3.9.
 
-		xRBytes, _ := R.XBytes() // Can't fail, R != Inf.
+		rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
 
 		// 3. Set r = xR mod n. If r = 0, or optionally r fails to meet
 		// other publicly verifiable criteria (see below), return to Step 1.
 
-		r, _ = secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(xRBytes))
+		var didReduce uint64
+		r, didReduce = secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(rXBytes))
 		if r.IsZero() != 0 {
 			continue
 		}
@@ -177,6 +183,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 		s = secp256k1.NewScalar()
 		s.Multiply(r, d.scalar).Add(s, e).Multiply(s, kInv)
 		if s.IsZero() == 0 {
+			recoveryID = (byte(didReduce) << 1) | byte(rYIsOdd)
 			break
 		}
 	}
@@ -191,9 +198,11 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// As either is valid in any other context, always produce
 	// signatures of that form.
 
-	s.ConditionalNegate(s, s.IsGreaterThanHalfN())
+	negateS := s.IsGreaterThanHalfN()
+	s.ConditionalNegate(s, negateS)
+	recoveryID ^= byte(negateS)
 
-	return r, s, nil
+	return r, s, recoveryID, nil
 }
 
 func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
