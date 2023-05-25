@@ -66,8 +66,8 @@ func testEcdsaK(t *testing.T) {
 
 		// Convert the message hashes to scalars (z1, z2), per ECDSA.
 
-		z1 := hashToScalar(msg1Hash)
-		z2 := hashToScalar(msg2Hash)
+		z1, _ := hashToScalar(msg1Hash)
+		z2, _ := hashToScalar(msg2Hash)
 
 		// Recover k via `k = (z - z')/(s - s')`
 

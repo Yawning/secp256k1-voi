@@ -70,6 +70,19 @@ func TestSecec(t *testing.T) {
 		ok = pub.VerifyASN1(tmp, sig)
 		require.False(t, ok, "VerifyASN1 - Corrupted h")
 	})
+	t.Run("ECDSA/Recover", func(t *testing.T) {
+		// TODO: It would be nice to find test vectors for this...
+		priv, err := GenerateKey(rand.Reader)
+		require.NoError(t, err, "GenerateKey")
+
+		r, s, recoveryID, err := priv.Sign(rand.Reader, testMessageHash)
+		require.NoError(t, err, "Sign")
+
+		q, err := RecoverPublicKey(testMessageHash, r, s, recoveryID)
+		require.NoError(t, err, "RecoverPublicKey")
+
+		require.True(t, priv.PublicKey().Equal(q))
+	})
 	t.Run("ECDSA/K", testEcdsaK)
 	t.Run("Schnorr", func(t *testing.T) {
 		priv, err := GenerateKey(rand.Reader)
@@ -111,6 +124,9 @@ func BenchmarkSecec(b *testing.B) {
 	require.NoError(b, err)
 
 	randomSchnorrSig, err := randomPriv2.SignSchnorr(rand.Reader, testMessageHash)
+	require.NoError(b, err)
+
+	randomR, randomS, randomRecID, err := randomPriv2.Sign(rand.Reader, testMessageHash)
 	require.NoError(b, err)
 
 	b.Run("GenerateKey", func(b *testing.B) {
@@ -199,6 +215,15 @@ func BenchmarkSecec(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				ok := randomSchnorrPub.Verify(testMessageHash, randomSchnorrSig)
 				require.True(b, ok)
+			}
+		})
+		b.Run("Recover", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, err := RecoverPublicKey(testMessageHash, randomR, randomS, randomRecID)
+				require.NoError(b, err)
 			}
 		})
 	})

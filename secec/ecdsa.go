@@ -97,6 +97,45 @@ func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
 	return k.Verify(hash, r, s)
 }
 
+// RecoverPublicKey recovers the public key from the signature
+// `(r, s, recoveryID)` over `hash`.  `recoverID` MUST be in the range
+// `[0,3]`.
+func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*PublicKey, error) {
+	if r.IsZero() != 0 || s.IsZero() != 0 {
+		return nil, errInvalidRorS
+	}
+
+	// This roughly follows SEC 1, Version 2.0, Section 4.1.6, except
+	// that instead of computing all possible R candidates from r,
+	// the recoveryID explicitly encodes which point to use.
+	R, err := secp256k1.RecoverPointVartime(r, recoveryID)
+	if err != nil {
+		return nil, err
+	}
+	if R.IsIdentity() != 0 {
+		return nil, errRIsInfinity
+	}
+
+	// 1.5. Compute e from M using Steps 2 and 3 of ECDSA signature verification.
+	e, err := hashToScalar(hash)
+	if err != nil {
+		return nil, err
+	}
+	negE := secp256k1.NewScalar().Negate(e)
+
+	// 1.6.1 Compute a candidate public key as: Q = r^(−1)(sR − eG).
+	//
+	// Rewriting this to be nicer, (-e)*r^(-1) * G + s*r^(-1) * R.
+	rInv := secp256k1.NewScalar().Invert(r)
+
+	u1 := secp256k1.NewScalar().Multiply(negE, rInv)
+	u2 := secp256k1.NewScalar().Multiply(s, rInv)
+
+	Q := secp256k1.NewIdentityPoint().DoubleScalarMultBasepointVartime(u1, u2, R)
+
+	return NewPublicKeyFromPoint(Q)
+}
+
 func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
 	var recoveryID byte
 
@@ -110,15 +149,6 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	//   H = Hash(M)
 	// of length hashlen octets as specified in Section 3.5. If the
 	// hash function outputs “invalid”, output “invalid” and stop.
-	//
-	// Note/yawning: H is provided as the input `hBytes`, but at
-	// least ensure  that it is "sensible", where we somewhat
-	// arbitrarily define "at least 128-bits" as "sensible".
-	// Realistically everyone is going to use at least 256-bits.
-
-	if hLen := len(hBytes); hLen < 16 {
-		return nil, nil, 0, errInvalidDigest
-	}
 
 	// 5. Derive an integer e from H as follows:
 	// 5.1. Convert the octet string H to a bit string H using the
@@ -131,7 +161,10 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// 5.4. Convert the octet string E to an integer e using the
 	// conversion routine specified in Section 2.3.8.
 
-	e := hashToScalar(hBytes)
+	e, err := hashToScalar(hBytes)
+	if err != nil {
+		return nil, nil, 0, err
+	}
 
 	// While I normally will be content to let idiots compromise
 	// their signing keys, past precident (eg: Sony Computer
@@ -222,15 +255,6 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	//   H = Hash(M)
 	// of length hashlen octets as specified in Section 3.5. If the
 	// hash function outputs “invalid”, output “invalid” and stop.
-	//
-	// Note/yawning: H is provided as the input `hBytes`, but at
-	// least ensure  that it is "sensible", where we somewhat
-	// arbitrarily define "at least 128-bits" as "sensible".
-	// Realistically everyone is going to use at least 256-bits.
-
-	if hLen := len(hBytes); hLen < 16 {
-		return errInvalidDigest
-	}
 
 	// 3. Derive an integer e from H as follows:
 	// 3.1. Convert the octet string H to a bit string H using the
@@ -243,7 +267,10 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	// 3.4. Convert the octet string E to an integer e using the
 	// conversion routine specified in Section 2.3.8.
 
-	e := hashToScalar(hBytes)
+	e, err := hashToScalar(hBytes)
+	if err != nil {
+		return err
+	}
 
 	// 4. Compute: u1 = e(s^−1) mod n and u2 = r(s^-1) mod n.
 
@@ -282,19 +309,25 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 //
 // Note: This also will reduce the resulting scalar such that it is
 // in the range [0, n), which is fine for ECDSA.
-func hashToScalar(hash []byte) *secp256k1.Scalar {
+func hashToScalar(hash []byte) (*secp256k1.Scalar, error) {
+	// Limit len(hash) to something "sensible".
+	hLen := len(hash)
+	if hLen < 16 {
+		return nil, errInvalidDigest
+	}
+
 	// TLDR; The left-most Ln-bits of hash.
 	var (
 		tmp    [secp256k1.ScalarSize]byte
 		offset = 0
 	)
-	if hLen := len(hash); hLen < secp256k1.ScalarSize {
+	if hLen < secp256k1.ScalarSize {
 		offset = secp256k1.ScalarSize - hLen
 	}
 	copy(tmp[offset:], hash)
 
 	s, _ := secp256k1.NewScalar().SetBytes(&tmp) // Reduction info unneeded.
-	return s
+	return s, nil
 }
 
 func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
