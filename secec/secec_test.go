@@ -57,8 +57,8 @@ func TestSecec(t *testing.T) {
 
 		bipSig := append([]byte{}, sig...)
 		bipSig = append(bipSig, 69)
-		ok = pub.VerifyASN1Shitcoin(testMessageHash, bipSig)
-		require.True(t, ok, "VerifyASN1Shitcoin")
+		ok = pub.VerifyASN1BIP0066(testMessageHash, bipSig)
+		require.True(t, ok, "VerifyASN1BIP0066")
 
 		tmp := append([]byte{}, sig...)
 		tmp[0] ^= 0x69

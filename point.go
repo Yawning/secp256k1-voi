@@ -1,4 +1,4 @@
-// Package secp256k1 implements the shitcoin elliptic curve as specified
+// Package secp256k1 implements the secp256k1 elliptic curve as specified
 // in SEC 2, Version 2.0, Section 2.4.1.
 package secp256k1
 

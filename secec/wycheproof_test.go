@@ -313,7 +313,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 		// length checks.
 		bipSig := append([]byte{}, sigBytes...)
 		bipSig = append(bipSig, 69)
-		sigOkOneshot = publicKey.VerifyASN1Shitcoin(hBytes, bipSig)
+		sigOkOneshot = publicKey.VerifyASN1BIP0066(hBytes, bipSig)
 	}
 	require.EqualValues(t, !mustFail, sigOkOneshot, "one-shot signature verification: %+v", tc.Flags)
 

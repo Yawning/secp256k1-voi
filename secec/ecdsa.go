@@ -78,14 +78,14 @@ func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
 	return k.Verify(hash, r, s)
 }
 
-// VerifyASN1Shitcoin verifies the BIP-0066 encoded signature `sig` of
+// VerifyASN1BIP0066 verifies the BIP-0066 encoded signature `sig` of
 // `hash`, using the PublicKey `k`, using the verification procedure
 // as specifed in SEC 1, Version 2.0, Section 4.1.4, with the additional
 // restriction that `s` MUST be less than or equal to `n / 2`.
 // Its return value records whether the signature is valid.
 //
 // Note: The signature MUST have the trailing `sighash` byte.
-func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
+func (k *PublicKey) VerifyASN1BIP0066(hash, sig []byte) bool {
 	r, s, err := parseASN1SignatureShitcoin(sig)
 	if err != nil {
 		return false

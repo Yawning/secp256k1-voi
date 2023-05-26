@@ -18,6 +18,11 @@ are produced by [addchain][2].
 ["Complete addition formulas for prime order elliptic curves"][3] by
 Renes, Costello, and Batina are used.
 
+#### Warning
+
+This product can expose you to chemicals which are know to the State of
+California to cause cancer.  For more information visit www.P65Warnings.ca.gov.
+
 #### Features
 
 - Formally verified field and scalar arithmetic.

@@ -19,10 +19,9 @@ var (
 // ParseASN1PublicKey parses a ASN.1 encoded public key as specified in
 // SEC 1, Version 2.0, Appendix C.3.
 //
-// WARNING: This is incomplete and "best-effort", because ASN.1 and
-// X.509 are gigantic steaming piles of shit.  Really, the only reason
-// this even exists is so that the package can be tested against
-// Wycheproof.
+// WARNING: This is incomplete and "best-effort".  In particular parsing
+// the case where the curve is parameterized as part of the public key
+// is not, and will not be supported.
 func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 	var (
 		inner     cryptobyte.String

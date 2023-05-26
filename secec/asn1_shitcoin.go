@@ -7,11 +7,11 @@ import (
 	"gitlab.com/yawning/secp256k1-voi.git"
 )
 
-// IsValidShitcoinSignatureEncoding returns true iff `data` is encoded
+// IsValidSignatureEncodingBIP0066 returns true iff `data` is encoded
 // per BIP-0066, including the trailing `sighash` byte.
 //
 // See: https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki
-func IsValidShitcoinSignatureEncoding(data []byte) bool {
+func IsValidSignatureEncodingBIP0066(data []byte) bool {
 	// Note:
 	// - Most of the checks are probably redundant to what
 	//   parseASN1Signature does, but if there's a standard, follow it.
@@ -116,7 +116,7 @@ func IsValidShitcoinSignatureEncoding(data []byte) bool {
 }
 
 func parseASN1SignatureShitcoin(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
-	if !IsValidShitcoinSignatureEncoding(data) {
+	if !IsValidSignatureEncodingBIP0066(data) {
 		return nil, nil, errors.New("secp256k1/secec/ecdsa: malformed BIP-0066 signature")
 	}
 
