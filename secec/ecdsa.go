@@ -31,7 +31,7 @@ var (
 // tuple `(r, s, recovery_id)`.
 //
 // Note:
-// - `s` will always be less than or equal to n.
+// - `s` will always be less than or equal to `n / 2`.
 // - `recovery_id` will always be in the range `[0, 3]`.  Adding `27`,
 // `31`, or the EIP-155 nonsense is left to the caller.
 func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
