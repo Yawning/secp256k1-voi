@@ -211,11 +211,13 @@ func NewSchnorrPublicKeyFromPoint(point *secp256k1.Point) (*SchnorrPublicKey, er
 
 func newSchnorrPublicKeyFromPrivateKey(sk *PrivateKey) *SchnorrPublicKey {
 	pt := secp256k1.NewPointFrom(sk.publicKey.point)
-	pt.ConditionalNegate(pt, sk.publicKey.isYOdd())
+
+	xBytes, yIsOdd := splitUncompressedPoint(sk.publicKey.pointBytes)
+	pt.ConditionalNegate(pt, yIsOdd)
 
 	return &SchnorrPublicKey{
 		point:  pt,
-		xBytes: sk.publicKey.pointBytes[1 : 1+SchnorrPublicKeySize],
+		xBytes: xBytes,
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 
 const (
 	wantedEntropyBytes = 256 / 8
+	maxScalarResamples = 8
 	domainSepECDSA     = "ECDSA-Sign"
 )
 
@@ -111,6 +112,7 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 	// This roughly follows SEC 1, Version 2.0, Section 4.1.6, except
 	// that instead of computing all possible R candidates from r,
 	// the recoveryID explicitly encodes which point to use.
+
 	R, err := secp256k1.RecoverPoint(r, recoveryID)
 	if err != nil {
 		return nil, err
@@ -120,6 +122,7 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 	}
 
 	// 1.5. Compute e from M using Steps 2 and 3 of ECDSA signature verification.
+
 	e, err := hashToScalar(hash)
 	if err != nil {
 		return nil, err
@@ -129,8 +132,8 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 	// 1.6.1 Compute a candidate public key as: Q = r^(−1)(sR − eG).
 	//
 	// Rewriting this to be nicer, (-e)*r^(-1) * G + s*r^(-1) * R.
-	rInv := secp256k1.NewScalar().Invert(r)
 
+	rInv := secp256k1.NewScalar().Invert(r)
 	u1 := secp256k1.NewScalar().Multiply(negE, rInv)
 	u2 := secp256k1.NewScalar().Multiply(s, rInv)
 
@@ -397,7 +400,7 @@ func sampleRandomScalar(rand io.Reader) (*secp256k1.Scalar, error) {
 		tmp [secp256k1.ScalarSize]byte
 		s   = secp256k1.NewScalar()
 	)
-	for i := 0; i < 8; i++ {
+	for i := 0; i < maxScalarResamples; i++ {
 		if _, err := io.ReadFull(rand, tmp[:]); err != nil {
 			return nil, fmt.Errorf("secp256k1/secec: entropy source failure: %w", err)
 		}
