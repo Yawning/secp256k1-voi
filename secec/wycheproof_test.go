@@ -21,11 +21,11 @@ const (
 	encodingAsn       = "asn"
 	encodingWebCrypto = "webcrypto"
 
-	fileEcdhAsn        = "../internal/wycheproof/testdata/ecdh_secp256k1_test.json"
-	fileEcdhWebCrypto  = "../internal/wycheproof/testdata/ecdh_secp256k1_webcrypto_test.json"
-	fileEcdsaAsnSha256 = "../internal/wycheproof/testdata/ecdsa_secp256k1_sha256_test.json"
-	fileEcdsaAsnSha512 = "../internal/wycheproof/testdata/ecdsa_secp256k1_sha512_test.json"
-	fileEcdsaShitcoin  = "../internal/wycheproof/testdata/ecdsa_secp256k1_sha256_bitcoin_test.json"
+	fileEcdhAsn        = "./testdata/wycheproof/ecdh_secp256k1_test.json"
+	fileEcdhWebCrypto  = "./testdata/wycheproof/ecdh_secp256k1_webcrypto_test.json"
+	fileEcdsaAsnSha256 = "./testdata/wycheproof/ecdsa_secp256k1_sha256_test.json"
+	fileEcdsaAsnSha512 = "./testdata/wycheproof/ecdsa_secp256k1_sha512_test.json"
+	fileEcdsaShitcoin  = "./testdata/wycheproof/ecdsa_secp256k1_sha256_bitcoin_test.json"
 
 	jwkKtyEc        = "EC"
 	jwkCrvSecp256k1 = "P-256K"
