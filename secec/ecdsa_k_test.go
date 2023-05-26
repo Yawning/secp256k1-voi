@@ -161,6 +161,36 @@ func testEcdsaK(t *testing.T) {
 		// to sign the same message, should result in a non-deterministic
 		// signature.
 	})
+	t.Run("MitigateDebianAndSony/DomainSep", func(t *testing.T) {
+		// As we use the same nonce generation routine between ECDSA
+		// and Schnorr signatures, validate that domain separation
+		// works as expected, by generating 2 scalars with the
+		// degraded deterministic rng, and ensuring that changing
+		// the domain separator changes the scalar.
+		//
+		// Note: This is what the 'c' in 'cSHAKE' is for, so if this
+		// test ever fails, something is very badly fucked up.
+
+		testKeyScalarBytes := sha256.Sum256([]byte("It's a proprietary strategy. I can't go into it in great detail."))
+		testKeyScalar, err := secp256k1.NewScalarFromCanonicalBytes(&testKeyScalarBytes)
+		require.NoError(t, err, "NewScalarFromCanonicalBytes")
+		testKey, err := newPrivateKeyFromScalar(testKeyScalar)
+		require.NoError(t, err, "newPrivateKeyFromScalar")
+
+		genScalar := func(domainSep string) *secp256k1.Scalar {
+			rng, err := mitigateDebianAndSony(zeroReader{}, domainSep, testKey, msg1Hash)
+			require.NoError(t, err, "mitigateDebianAndSony(%s)", domainSep)
+
+			s, err := sampleRandomScalar(rng)
+			require.NoError(t, err, "sampleRandomScalar(%s)", domainSep)
+			return s
+		}
+
+		scalarEcdsa := genScalar(domainSepECDSA)
+		scalarSchnorr := genScalar(domainSepSchnorr) // Only thing that changes is the domain separator.
+
+		require.NotEqualValues(t, scalarEcdsa.Bytes(), scalarSchnorr.Bytes())
+	})
 }
 
 func mustScalarFromHex(t *testing.T, x string) *secp256k1.Scalar {
