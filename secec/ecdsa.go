@@ -100,6 +100,9 @@ func (k *PublicKey) VerifyASN1Shitcoin(hash, sig []byte) bool {
 // RecoverPublicKey recovers the public key from the signature
 // `(r, s, recoveryID)` over `hash`.  `recoverID` MUST be in the range
 // `[0,3]`.
+//
+// Note: `s` in the range `[1, n)` is considered valid here.  It is the
+// caller's responsibility to check `s.IsGreaterThanHalfN()` as required.
 func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*PublicKey, error) {
 	if r.IsZero() != 0 || s.IsZero() != 0 {
 		return nil, errInvalidRorS

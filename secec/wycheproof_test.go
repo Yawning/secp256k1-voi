@@ -337,12 +337,42 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	require.False(t, hasFlagRejectEarly, "failed to reject bad/exotic encoding: %+v", tc.Flags)
 	require.NoError(t, err, "parseASN1Signature: %+v", tc.Flags)
 
-	sigOk := nil == verify(publicKey, hBytes, r, s)
+	splitSigOk := nil == verify(publicKey, hBytes, r, s) // Need the un-fixed up result.
+	sigOk := splitSigOk
 	if tg.Type == typeEcdsaShitcoinVerify {
-		// Special case: `s <= n` is only enforced in VerifyASN1Shitcoin.
+		// Special case: `s <= n/2` is only enforced in VerifyASN1Shitcoin.
 		sigOk = sigOk && s.IsGreaterThanHalfN() == 0
 	}
 	require.EqualValues(t, !mustFail, sigOk, "split signature verification: %+v", tc.Flags)
+
+	// Note: This checks the recovery result against verify rather than
+	// the test case pass/fail, as the Shitcoin flavored ECDSA test
+	// cases checks for `s <= n/2`, which RecoverPublicKey does not
+	// enforce (Test cases 1, 388).
+	//
+	// RecoverPublicKey's acceptance of "high" `s` matches what is
+	// done by libsecp256k1, and the EVM precompile.
+	recoverOk := recoverPublicKeyExhaustive(publicKey, hBytes, r, s)
+	require.EqualValues(t, splitSigOk, recoverOk, "public key recovery: %+v", tc.Flags)
+}
+
+func recoverPublicKeyExhaustive(expectedPub *PublicKey, hash []byte, r, s *secp256k1.Scalar) bool {
+	// Follow the more traditional approach without recovery_id as in
+	// SEC 1.0, Version 2.0, Section 4.1.6.  This can be implemented
+	// with our implementation by trying every possible recovery_id.
+
+	for recoveryID := byte(0); recoveryID < 4; recoveryID++ {
+		q, err := RecoverPublicKey(hash, r, s, recoveryID)
+		if err != nil {
+			continue
+		}
+		// 1.6.2. Verify that Q is the authentic public key.
+		if expectedPub.Equal(q) {
+			return true
+		}
+	}
+	// 2. Output “invalid”.
+	return false
 }
 
 func testWycheproofEcdh(t *testing.T, fn string) {
