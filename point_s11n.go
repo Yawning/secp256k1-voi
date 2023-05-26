@@ -233,16 +233,15 @@ func NewPointFromBytes(src []byte) (*Point, error) {
 	return p, nil
 }
 
-// RecoverPointVartime reconstructs a point from the Scalar representation of
-// the x-coordinate, and a "recovery ID" in the range `[0,3]`, in variable
-// time.
-func RecoverPointVartime(xScalar *Scalar, recoveryID byte) (*Point, error) {
+// RecoverPoint reconstructs a point from the Scalar representation of
+// the x-coordinate, and a "recovery ID" in the range `[0,3]`.
+func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	if recoveryID >= 4 {
 		return nil, errors.New("secp256k1: invalid recovery ID")
 	}
 
 	// The 0th bit indicates if the y-coordinate was odd.
-	yIsOdd := byte(recoveryID&1)
+	yIsOdd := byte(recoveryID & 1)
 
 	xFe, err := field.NewElementFromCanonicalBytes((*[field.ElementSize]byte)(xScalar.Bytes()))
 	if err != nil {
@@ -250,22 +249,24 @@ func RecoverPointVartime(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	}
 
 	// The 1st bit indicates if the x-coordinate was larger than n.
-	if recoveryID&2 != 0 {
-		// This is unlikely in the extreme, but ok, it can happen.
-		xFe.Add(xFe, feN)
+	//
+	// This is unlikely in the extreme, but wycheproof has test cases
+	// that can trigger this ("k*G has a large x-coordinate").
+	xGtN := uint64(recoveryID&2) >> 1
+	xFeN := field.NewElement().Add(xFe, feN)
+	xFe.ConditionalSelect(xFe, xFeN, xGtN)
 
-		// Sanity check.
-		sc, didReduce := NewScalar().SetBytes((*[ScalarSize]byte)(xFe.Bytes()))
-		if didReduce == 0 || sc.Equal(xScalar) == 0 {
-			return nil, errors.New("secp256k1: invalid x-coordinate order-bit")
-		}
+	// Sanity check.
+	sc, didReduce := NewScalar().SetBytes((*[ScalarSize]byte)(xFe.Bytes()))
+	if (helpers.Uint64Equal(didReduce, xGtN) & sc.Equal(xScalar)) == 0 {
+		return nil, errors.New("secp256k1: invalid x-coordinate order-bit")
 	}
 
 	// Now that we have what probably is the x-coordinate, and the
 	// parity of the y-coordinate, we can just treat this as any
 	// other compressed point.
 	ptCompressed := make([]byte, 0, CompressedPointSize)
-	ptCompressed = append(ptCompressed, yIsOdd + prefixCompressedEven)
+	ptCompressed = append(ptCompressed, yIsOdd+prefixCompressedEven)
 	ptCompressed = append(ptCompressed, xFe.Bytes()...)
 
 	return newRcvr().SetCompressedBytes(ptCompressed)

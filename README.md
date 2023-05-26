@@ -21,7 +21,8 @@ Renes, Costello, and Batina are used.
 #### Features
 
 - Formally verified field and scalar arithmetic.
-- Constant time curve and scalar operations unless explicitly noted otherwise.
+- Constant time curve and scalar arithmetic operations unless explicitly
+noted otherwise.
 - Fast `s * G` routine using precomputed tables.
 - Fast variable-time `u1 * G + u2 * P` routine for signature verification.
 - Safe-by-default API, that makes it extremely hard to create invalid points

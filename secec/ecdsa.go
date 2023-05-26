@@ -111,7 +111,7 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 	// This roughly follows SEC 1, Version 2.0, Section 4.1.6, except
 	// that instead of computing all possible R candidates from r,
 	// the recoveryID explicitly encodes which point to use.
-	R, err := secp256k1.RecoverPointVartime(r, recoveryID)
+	R, err := secp256k1.RecoverPoint(r, recoveryID)
 	if err != nil {
 		return nil, err
 	}
