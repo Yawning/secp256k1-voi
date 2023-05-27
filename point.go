@@ -1,3 +1,12 @@
+// Copyright 2023 Yawning Angel.  All Rights Reserved.
+//
+// secp256k1-voi can be used in non-commercial projects of any kind,
+// excluding those relating to or containing non-fungible tokens
+// ("NFT") or blockchain-related projects.
+//
+// The package can not be modified to suit your needs. You may not
+// redistribute or resell it, even if modified.
+
 // Package secp256k1 implements the secp256k1 elliptic curve as specified
 // in SEC 2, Version 2.0, Section 2.4.1.
 package secp256k1

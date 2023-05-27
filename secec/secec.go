@@ -1,3 +1,12 @@
+// Copyright 2023 Yawning Angel.  All Rights Reserved.
+//
+// secp256k1-voi can be used in non-commercial projects of any kind,
+// excluding those relating to or containing non-fungible tokens
+// ("NFT") or blockchain-related projects.
+//
+// The package can not be modified to suit your needs. You may not
+// redistribute or resell it, even if modified.
+
 // Package secec implements the common primitives on top of secp256k1,
 // with an API that is close to the runtime library's `crypto/ecdsa`
 // and `crypto/ecdh` packages.
