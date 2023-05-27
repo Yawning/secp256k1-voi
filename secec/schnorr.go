@@ -313,6 +313,18 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg *[Schnor
 	// computation cost is prohibitive.".  Doing this check, triples
 	// the time it takes to sign.  It's not quite "prohibitive", but
 	// it is on the expensive side.
+	//
+	// As an alternative since we know `sk.scalar`, it is possible to
+	// do the signature verification by calculating `R = (s - d*e) * G`,
+	// in effect trading off a DoubleScalarMultBasepointVartime for a
+	// ScalarBaseMult.  This identical in principal to the equivalent
+	// ECDSA optimization documented in SEC 1, Version 2.0, Section
+	// 4.1.5.
+	//
+	// For now, just call verify because this is tinfoil hattery, and
+	// people are liable to complain if we go for optimized tinfoil
+	// hattery (and at that point, we might as well just remove the
+	// check all together.)
 
 	if !sk.SchnorrPublicKey().Verify(msg[:], sig) {
 		return nil, errors.New("secp256k1/secec/schnorr: failed to verify sig")
