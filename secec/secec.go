@@ -57,10 +57,13 @@ func (k *PrivateKey) Public() crypto.PublicKey {
 	return k.publicKey
 }
 
+// PublicKey returns the ECDSA/ECDH public key corresponding to `k`.
 func (k *PrivateKey) PublicKey() *PublicKey {
 	return k.publicKey
 }
 
+// SchnorrPublicKey returns the BIP-0340 Schnorr signature public key
+// corresponding to `k`.
 func (k *PrivateKey) SchnorrPublicKey() *SchnorrPublicKey {
 	return k.schnorrPublicKey
 }

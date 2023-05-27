@@ -87,9 +87,9 @@ func testSchnorrKAT(t *testing.T) {
 			require.EqualValues(t, pk.Bytes(), skPubKey.Bytes(), "pk.Bytes() == sk.pk.Bytes()")
 			require.EqualValues(t, 1, pk.point.Equal(skPubKey.point), "pk.Point() == sk.pk.Point()")
 
-			auxRandBytes := helpers.MustBytesFromHex(vec[fieldAuxRand])
+			auxRandBytes := (*[schnorrEntropySize]byte)(helpers.MustBytesFromHex(vec[fieldAuxRand]))
 
-			derivedSig, err := signSchnorr(auxRandBytes, sk, msgBytes)
+			derivedSig, err := signSchnorr(auxRandBytes, sk, (*[SchnorrMessageSize]byte)(msgBytes))
 			require.NoError(t, err, "signSchnorr")
 			require.EqualValues(t, sigBytes, derivedSig)
 		})

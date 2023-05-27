@@ -56,6 +56,7 @@ func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 	// place, so it still might not be the best idea to use the same
 	// signing key for both schemes, but it is theoretically safe with
 	// this library, and other libraries just need to not suck.
+
 	fixedRng, err := mitigateDebianAndSony(rand, domainSepSchnorr, k, msg)
 	if err != nil {
 		return nil, err
@@ -65,7 +66,7 @@ func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return signSchnorr(auxEntropy[:], k, msg)
+	return signSchnorr(&auxEntropy, k, (*[SchnorrMessageSize]byte)(msg))
 }
 
 // SchnorrPublicKey is a public key for verifying BIP-0340 Schnorr signatures.
@@ -123,35 +124,42 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 	// Note/yawning: If one were to want to do this without using the
 	// internal field package, the point decompression routine also
 	// would work, but would be slower.
+
 	sigRBytes := (*[field.ElementSize]byte)(sig[0:32])
 	if !field.BytesAreCanonical(sigRBytes) {
 		return false
 	}
 
 	// Let s = int(sig[32:64]); fail if s ≥ n.
+
 	s, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(sig[32:64]))
 	if err != nil {
 		return false
 	}
 
 	// Let e = int(hashBIP0340/challenge(bytes(r) || bytes(P) || m)) mod n.
+
 	eBytes := schnorrTaggedHash(schnorrTagChallenge, sigRBytes[:], k.xBytes, msg)
 	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
 
 	// Let R = s⋅G - e⋅P.
+
 	e.Negate(e)
 	R := secp256k1.NewIdentityPoint().DoubleScalarMultBasepointVartime(s, e, k.point)
 
 	// Fail if is_infinite(R).
+
 	if R.IsIdentity() != 0 {
 		return false
 	}
 
 	// Note/yawning: Doing it this way saves repeated rescaling, since
 	// the curve implementation always does the inversion.
+
 	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
 
 	// Fail if not has_even_y(R).
+
 	if rYIsOdd != 0 {
 		return false
 	}
@@ -159,6 +167,7 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 	// Fail if x(R) ≠ r.
 	//
 	// Note/yawning: Vartime compare, because this is verification.
+
 	if !bytes.Equal(rXBytes, sigRBytes[:]) {
 		return false
 	}
@@ -169,7 +178,7 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 }
 
 // NewSchnorrPublicKey checks that `key` is valid, and returns a
-// SchorrPublicKey.
+// SchnorrPublicKey.
 func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 	if len(key) != SchnorrPublicKeySize {
 		return nil, errors.New("secp256k1/secec/schnorr: invalid public key")
@@ -190,8 +199,11 @@ func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 	}, nil
 }
 
-// NewSchnorrPublicKeyFromPoint checks that `point` is valid, and
-// returns a SchnorrPublicKey.
+// NewSchnorrPublicKeyFromPoint checks that `point` is valid, and returns
+// a SchnorrPublicKey.
+//
+// Note: This routine accepts any point on the curve, and will fixup the
+// Y-coordinate if required.
 func NewSchnorrPublicKeyFromPoint(point *secp256k1.Point) (*SchnorrPublicKey, error) {
 	pt := secp256k1.NewPointFrom(point)
 	if pt.IsIdentity() != 0 {
@@ -234,15 +246,7 @@ func schnorrTaggedHash(tag string, vals ...[]byte) []byte {
 	return h.Sum(nil)
 }
 
-func signSchnorr(auxRand []byte, sk *PrivateKey, msg []byte) ([]byte, error) {
-	// Check invariants.
-	if len(msg) != SchnorrMessageSize {
-		panic("secp256k1/secec/schnorr: invalid message size in signing")
-	}
-	if len(auxRand) != schnorrEntropySize {
-		panic("secp256k1/secec/schnorr: invalid aux rand size in signing")
-	}
-
+func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg *[SchnorrMessageSize]byte) ([]byte, error) {
 	// The algorithm Sign(sk, m) is defined as:
 
 	// Let d' = int(sk)
@@ -255,21 +259,26 @@ func signSchnorr(auxRand []byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 	// caches the result of lift_x for verification.
 
 	// Let d = d' if has_even_y(P), otherwise let d = n - d' .
+
 	pBytes, negateD := splitUncompressedPoint(sk.PublicKey().Bytes())
 	d := secp256k1.NewScalarFrom(sk.scalar)
 	d.ConditionalNegate(d, negateD)
 
 	// Let t be the byte-wise xor of bytes(d) and hashBIP0340/aux(a)[11].
+
 	var t [schnorrEntropySize]byte
-	subtle.XORBytes(t[:], schnorrTaggedHash(schnorrTagAux, auxRand), d.Bytes())
+	subtle.XORBytes(t[:], schnorrTaggedHash(schnorrTagAux, auxRand[:]), d.Bytes())
 
 	// Let rand = hashBIP0340/nonce(t || bytes(P) || m)[12].
-	rand := schnorrTaggedHash(schnorrTagNonce, t[:], pBytes, msg)
+
+	rand := schnorrTaggedHash(schnorrTagNonce, t[:], pBytes, msg[:])
 
 	// Let k' = int(rand) mod n[13].
+
 	kPrime, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(rand))
 
 	// Fail if k' = 0.
+
 	if kPrime.IsZero() != 0 {
 		// In theory this is a probabalistic failure, however the odds
 		// of this happening are basically non-existent.
@@ -277,17 +286,21 @@ func signSchnorr(auxRand []byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 	}
 
 	// Let R = k'⋅G.
+
 	R := secp256k1.NewIdentityPoint().ScalarBaseMult(kPrime)
 	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
 
 	// Let k = k' if has_even_y(R), otherwise let k = n - k' .
+
 	k := secp256k1.NewScalar().ConditionalNegate(kPrime, rYIsOdd)
 
 	// Let e = int(hashBIP0340/challenge(bytes(R) || bytes(P) || m)) mod n.
-	eBytes := schnorrTaggedHash(schnorrTagChallenge, rXBytes, pBytes, msg)
+
+	eBytes := schnorrTaggedHash(schnorrTagChallenge, rXBytes, pBytes, msg[:])
 	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
 
 	// Let sig = bytes(R) || bytes((k + ed) mod n).
+
 	sum := secp256k1.NewScalar().Multiply(e, d) // ed
 	sum.Add(k, sum)                             // k + ed
 	sig := make([]byte, 0, SchnorrSignatureSize)
@@ -300,7 +313,8 @@ func signSchnorr(auxRand []byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 	// computation cost is prohibitive.".  Doing this check, triples
 	// the time it takes to sign.  It's not quite "prohibitive", but
 	// it is on the expensive side.
-	if !sk.SchnorrPublicKey().Verify(msg, sig) {
+
+	if !sk.SchnorrPublicKey().Verify(msg[:], sig) {
 		return nil, errors.New("secp256k1/secec/schnorr: failed to verify sig")
 	}
 
