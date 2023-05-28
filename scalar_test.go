@@ -88,15 +88,6 @@ func BenchmarkScalar(b *testing.B) {
 			s.Invert(s)
 		}
 	})
-	b.Run("Invert/fiat", func(b *testing.B) {
-		s := NewScalar().MustRandomize()
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			s.InvertFiat(s)
-		}
-	})
 }
 
 func (s *Scalar) MustRandomize() *Scalar {
@@ -109,11 +100,6 @@ func (s *Scalar) MustRandomize() *Scalar {
 			return s
 		}
 	}
-}
-
-func (s *Scalar) InvertFiat(x *Scalar) *Scalar {
-	fiat.Invert(&s.m, &x.m)
-	return s
 }
 
 // Bits returns the bit representation of `s` in LSB->MSB order.

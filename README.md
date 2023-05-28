@@ -80,9 +80,6 @@ hand, this library is timing side-channel safe on reasonable architectures.
 
 Potential improvements:
 - Sit and wait for Go 1.21 to come out, it seems to do better.
-- In theory [Bernstein-Yang inversion][6] should be faster than addition
-chain based ones, and fiat provides a divstep implementation.  Figure out
-why it is considerably (approx 2.5x) slower in practice.
 - wNAF based point multiplication is probably a gain.
 - Go and add "multiply a field element by a small integer" to fiat.
 
@@ -91,4 +88,3 @@ why it is considerably (approx 2.5x) slower in practice.
 [3]: https://eprint.iacr.org/2015/1060.pdf
 [4]: https://pkg.go.dev/filippo.io/edwards25519
 [5]: https://pkg.go.dev/filippo.io/nistec
-[6]: https://eprint.iacr.org/2019/266
