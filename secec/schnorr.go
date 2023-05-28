@@ -129,27 +129,13 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 	// process is equivalent to lift_x.
 
 	// Let r = int(sig[0:32]); fail if r ≥ p.
-	//
-	// Note/yawning: If one were to want to do this without using the
-	// internal field package, the point decompression routine also
-	// would work, but would be slower.
-
-	sigRBytes := (*[field.ElementSize]byte)(sig[0:32])
-	if !field.BytesAreCanonical(sigRBytes) {
-		return false
-	}
-
 	// Let s = int(sig[32:64]); fail if s ≥ n.
-
-	s, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(sig[32:64]))
-	if err != nil {
-		return false
-	}
-
 	// Let e = int(hashBIP0340/challenge(bytes(r) || bytes(P) || m)) mod n.
 
-	eBytes := schnorrTaggedHash(schnorrTagChallenge, sigRBytes[:], k.xBytes, msg)
-	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
+	ok, s, e, sigRXBytes := parseSchnorrSignature(k.xBytes, msg, sig)
+	if !ok {
+		return false
+	}
 
 	// Let R = s⋅G - e⋅P.
 
@@ -157,33 +143,11 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 	R := secp256k1.NewIdentityPoint().DoubleScalarMultBasepointVartime(s, e, k.point)
 
 	// Fail if is_infinite(R).
-
-	if R.IsIdentity() != 0 {
-		return false
-	}
-
-	// Note/yawning: Doing it this way saves repeated rescaling, since
-	// the curve implementation always does the inversion.
-
-	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
-
 	// Fail if not has_even_y(R).
-
-	if rYIsOdd != 0 {
-		return false
-	}
-
 	// Fail if x(R) ≠ r.
-	//
-	// Note/yawning: Vartime compare, because this is verification.
-
-	if !bytes.Equal(rXBytes, sigRBytes[:]) {
-		return false
-	}
-
 	// Return success iff no failure occurred before reaching this point.
 
-	return true
+	return verifySchnorrSignatureR(sigRXBytes, R)
 }
 
 // NewSchnorrPublicKey checks that `key` is valid, and returns a
@@ -319,25 +283,101 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg *[Schnor
 	// If Verify(bytes(P), m, sig) (see below) returns failure, abort[14].
 	//
 	// Note/yawning: "It is recommended, but can be omitted if the
-	// computation cost is prohibitive.".  Doing this check, triples
-	// the time it takes to sign.  It's not quite "prohibitive", but
-	// it is on the expensive side.
+	// computation cost is prohibitive.".  Doing this check with the
+	// standard verification routine, triples the time it takes to sign.
 	//
-	// As an alternative since we know `sk.scalar`, it is possible to
-	// do the signature verification by calculating `R = (s - d*e) * G`,
-	// in effect trading off a DoubleScalarMultBasepointVartime for a
-	// ScalarBaseMult.  This identical in principal to the equivalent
-	// ECDSA optimization documented in SEC 1, Version 2.0, Section
-	// 4.1.5.
+	// There is a trivial optimization that replaces the
+	// DoubleScalarMultBasepointVartime with a ScalarBaseMult when
+	// verifying signatures signed by your own private key, so do that
+	// instead.
 	//
-	// For now, just call verify because this is tinfoil hattery, and
-	// people are liable to complain if we go for optimized tinfoil
-	// hattery (and at that point, we might as well just remove the
-	// check all together.)
+	// Note: Apart from the faster calculation of R, the verification
+	// process is identical to the normal verify.
 
-	if !sk.SchnorrPublicKey().Verify(msg[:], sig) {
+	if !verifySchnorrSelf(d, sk.SchnorrPublicKey().Bytes(), msg[:], sig) {
 		return nil, errors.New("secp256k1/secec/schnorr: failed to verify sig")
 	}
 
 	return sig, nil
+}
+
+func verifySchnorrSelf(d *secp256k1.Scalar, pkXBytes, msg, sig []byte) bool {
+	ok, s, e, sigRXBytes := parseSchnorrSignature(pkXBytes, msg, sig)
+	if !ok {
+		return false
+	}
+
+	// Let R = (s - d⋅e)⋅G.
+	//
+	// Note/yawning: d is the private key (or it's negation), so deriving
+	// R needs to be done in constant-time.
+
+	factor := secp256k1.NewScalar().Multiply(d, e)
+	factor.Subtract(s, factor)
+	R := secp256k1.NewIdentityPoint().ScalarBaseMult(factor)
+
+	return verifySchnorrSignatureR(sigRXBytes, R)
+}
+
+func parseSchnorrSignature(pkXBytes, msg, sig []byte) (bool, *secp256k1.Scalar, *secp256k1.Scalar, []byte) {
+	if len(msg) != SchnorrMessageSize {
+		return false, nil, nil, nil
+	}
+	if len(sig) != SchnorrSignatureSize {
+		return false, nil, nil, nil
+	}
+
+	// Let r = int(sig[0:32]); fail if r ≥ p.
+	//
+	// Note/yawning: If one were to want to do this without using the
+	// internal field package, the point decompression routine also
+	// would work, but would be slower.
+
+	sigRXBytes := sig[0:32]
+	if !field.BytesAreCanonical((*[field.ElementSize]byte)(sigRXBytes)) {
+		return false, nil, nil, nil
+	}
+
+	// Let s = int(sig[32:64]); fail if s ≥ n.
+
+	s, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(sig[32:64]))
+	if err != nil {
+		return false, nil, nil, nil
+	}
+
+	// Let e = int(hashBIP0340/challenge(bytes(r) || bytes(P) || m)) mod n.
+
+	eBytes := schnorrTaggedHash(schnorrTagChallenge, sigRXBytes, pkXBytes, msg)
+	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
+
+	return true, s, e, sigRXBytes
+}
+
+func verifySchnorrSignatureR(sigRXBytes []byte, R *secp256k1.Point) bool {
+	// Fail if is_infinite(R).
+
+	if R.IsIdentity() != 0 {
+		return false
+	}
+
+	// Note/yawning: Doing it this way saves repeated rescaling, since
+	// the curve implementation always does the inversion.
+
+	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
+
+	// Fail if not has_even_y(R).
+
+	if rYIsOdd != 0 {
+		return false
+	}
+
+	// Fail if x(R) ≠ r.
+	//
+	// Note/yawning: Vartime compare, because this is verification.
+
+	if !bytes.Equal(rXBytes, sigRXBytes[:]) {
+		return false
+	}
+
+	return true
 }
