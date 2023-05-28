@@ -17,6 +17,12 @@ import (
 	. "github.com/mmcloughlin/avo/operand"
 )
 
+// Note: A naive rewrite to make this use AVX2 is a net gain, however
+// it is only 5%-10% on my laptop for the fixed base and variable base
+// cases.  While AVX2 really is ubiquitous at this point, I prefer only
+// having one code path per architecture per now (and signing/ECDH
+// performance for this curve isn't what people tend to care about).
+
 func main() {
 	Package(".")
 
