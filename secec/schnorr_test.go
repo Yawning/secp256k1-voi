@@ -17,7 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 func testSchnorrKAT(t *testing.T) {

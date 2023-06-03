@@ -17,7 +17,7 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"gitlab.com/yawning/secp256k1-voi.git"
+	"gitlab.com/yawning/secp256k1-voi"
 )
 
 const (

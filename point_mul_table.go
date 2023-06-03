@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+	"gitlab.com/yawning/secp256k1-voi/internal/field"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 // Tables for doing accelerated scalar multiplication with a window.

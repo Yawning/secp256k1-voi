@@ -16,8 +16,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	fiat "gitlab.com/yawning/secp256k1-voi.git/internal/fiat/secp256k1montgomeryscalar"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+	fiat "gitlab.com/yawning/secp256k1-voi/internal/fiat/secp256k1montgomeryscalar"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 var scOne = NewScalar().One()

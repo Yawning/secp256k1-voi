@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 
-	"gitlab.com/yawning/secp256k1-voi.git"
+	"gitlab.com/yawning/secp256k1-voi"
 )
 
 var (

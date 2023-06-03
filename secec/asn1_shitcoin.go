@@ -13,7 +13,7 @@ import (
 	"encoding/asn1"
 	"errors"
 
-	"gitlab.com/yawning/secp256k1-voi.git"
+	"gitlab.com/yawning/secp256k1-voi"
 )
 
 // IsValidSignatureEncodingBIP0066 returns true iff `data` is encoded

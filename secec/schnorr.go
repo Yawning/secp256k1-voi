@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"io"
 
-	"gitlab.com/yawning/secp256k1-voi.git"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/disalloweq"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
+	"gitlab.com/yawning/secp256k1-voi"
+	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
+	"gitlab.com/yawning/secp256k1-voi/internal/field"
 )
 
 const (

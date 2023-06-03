@@ -1,4 +1,4 @@
-module gitlab.com/yawning/secp256k1-voi.git
+module gitlab.com/yawning/secp256k1-voi
 
 go 1.20
 

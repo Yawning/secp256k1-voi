@@ -1,4 +1,4 @@
-module gitlab.com/yawning/secp256k1-voi.git/internal/asm
+module gitlab.com/yawning/secp256k1-voi/internal/asm
 
 go 1.20
 

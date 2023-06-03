@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/yawning/secp256k1-voi.git"
+	"gitlab.com/yawning/secp256k1-voi"
 )
 
 func main() {

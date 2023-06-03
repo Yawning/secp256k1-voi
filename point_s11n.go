@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+	"gitlab.com/yawning/secp256k1-voi/internal/field"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 // See: https://www.secg.org/sec1-v2.pdf

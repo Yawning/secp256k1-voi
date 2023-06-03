@@ -14,8 +14,8 @@ package secp256k1
 import (
 	"fmt"
 
-	"gitlab.com/yawning/secp256k1-voi.git/internal/disalloweq"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
+	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
+	"gitlab.com/yawning/secp256k1-voi/internal/field"
 )
 
 var (

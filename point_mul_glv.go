@@ -12,8 +12,8 @@ package secp256k1
 import (
 	"math/bits"
 
-	fiat "gitlab.com/yawning/secp256k1-voi.git/internal/fiat/secp256k1montgomeryscalar"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/field"
+	fiat "gitlab.com/yawning/secp256k1-voi/internal/fiat/secp256k1montgomeryscalar"
+	"gitlab.com/yawning/secp256k1-voi/internal/field"
 )
 
 // GLV decomposition is first documented in "Faster Point Multiplication

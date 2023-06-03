@@ -14,9 +14,9 @@ import (
 	"errors"
 	"math/bits"
 
-	"gitlab.com/yawning/secp256k1-voi.git/internal/disalloweq"
-	fiat "gitlab.com/yawning/secp256k1-voi.git/internal/fiat/secp256k1montgomeryscalar"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
+	fiat "gitlab.com/yawning/secp256k1-voi/internal/fiat/secp256k1montgomeryscalar"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 // ScalarSize is the size of a scalar in bytes.

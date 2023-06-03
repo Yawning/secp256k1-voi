@@ -1,6 +1,6 @@
 package secp256k1montgomeryscalar
 
-import "gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+import "gitlab.com/yawning/secp256k1-voi/internal/helpers"
 
 // Uint64ToUint1 converts u to fiat's uint1, ensuring that the returned
 // value is in the range [0,1].

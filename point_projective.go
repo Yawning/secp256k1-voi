@@ -9,7 +9,7 @@
 
 package secp256k1
 
-import "gitlab.com/yawning/secp256k1-voi.git/internal/field"
+import "gitlab.com/yawning/secp256k1-voi/internal/field"
 
 // These are the internal routines specific to working with points
 // represented in projective coordinates.

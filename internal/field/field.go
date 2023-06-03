@@ -16,9 +16,9 @@ import (
 	"encoding/hex"
 	"errors"
 
-	"gitlab.com/yawning/secp256k1-voi.git/internal/disalloweq"
-	fiat "gitlab.com/yawning/secp256k1-voi.git/internal/fiat/secp256k1montgomery"
-	"gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
+	fiat "gitlab.com/yawning/secp256k1-voi/internal/fiat/secp256k1montgomery"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 // ElementSize is the size of a field element in bytes.

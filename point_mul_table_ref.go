@@ -11,7 +11,7 @@
 
 package secp256k1
 
-import "gitlab.com/yawning/secp256k1-voi.git/internal/helpers"
+import "gitlab.com/yawning/secp256k1-voi/internal/helpers"
 
 func lookupProjectivePoint(tbl *projectivePointMultTable, out *Point, idx uint64) {
 	out.Identity()
