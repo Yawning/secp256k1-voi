@@ -81,7 +81,7 @@ type SchnorrPublicKey struct {
 	xBytes []byte           // SEC 1 X-coordinate
 }
 
-// Bytes returns a copy of the uncompressed encoding of the public key.
+// Bytes returns a copy of the byte encoding of the public key.
 func (k *SchnorrPublicKey) Bytes() []byte {
 	if k.xBytes == nil {
 		panic("secp256k1/secec/schnorr: uninitialized public key")
