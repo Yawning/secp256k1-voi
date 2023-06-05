@@ -47,7 +47,7 @@ func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // ASN.1 encoded signature.
 //
-// Note: `s` will always be less than or equal to n.
+// Note: `s` will always be less than or equal to `n / 2`.
 func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 	r, s, _, err := k.Sign(rand, hash)
 	if err != nil {
