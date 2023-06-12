@@ -329,7 +329,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	// It would be nice if this could assert that things get rejected
 	// at the correct time and place, but when the rejection happens
 	// is split between the parsing and the actual signature verify.
-	r, s, err := parseASN1Signature(sigBytes)
+	r, s, err := ParseASN1Signature(sigBytes)
 	if err != nil {
 		// As a consolation prize, we re-do the signature verification
 		// by calling the internal routines, and assert that totally

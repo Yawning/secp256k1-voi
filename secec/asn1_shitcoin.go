@@ -124,5 +124,5 @@ func parseASN1SignatureShitcoin(data []byte) (*secp256k1.Scalar, *secp256k1.Scal
 		return nil, nil, errors.New("secp256k1/secec/ecdsa: malformed BIP-0066 signature")
 	}
 
-	return parseASN1Signature(data[:len(data)-1]) // Ignore the sighash
+	return ParseASN1Signature(data[:len(data)-1]) // Ignore the sighash
 }

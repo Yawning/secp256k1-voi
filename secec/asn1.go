@@ -20,7 +20,7 @@ var (
 	oidSecp256k1   = stdasn1.ObjectIdentifier{1, 3, 132, 0, 10}
 )
 
-// ParseASN1PublicKey parses a ASN.1 encoded public key as specified in
+// ParseASN1PublicKey parses an ASN.1 encoded public key as specified in
 // SEC 1, Version 2.0, Appendix C.3.
 //
 // WARNING: This is incomplete and "best-effort".  In particular parsing
@@ -58,7 +58,13 @@ func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 	return NewPublicKey(encodedPoint)
 }
 
-func parseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
+// ParseASN1Signature parses an ASN.1 encoded signature as specified in
+// SEC 1, Version 2.0, Appendix C.8, and returns the scalars `(r, s)`.
+//
+// Note: The signature MUST be `SEQUENCE { r INTEGER, s INTEGER }`,
+// as in encoded as a `ECDSA-Sig-Value`, WITHOUT the optional `a` and
+// `y` fields.
+func ParseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
 	var (
 		inner          cryptobyte.String
 		rBytes, sBytes []byte

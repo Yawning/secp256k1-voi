@@ -74,7 +74,7 @@ func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
 // as in encoded as a `ECDSA-Sig-Value`, WITHOUT the optional `a` and
 // `y` fields.
 func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
-	r, s, err := parseASN1Signature(sig)
+	r, s, err := ParseASN1Signature(sig)
 	if err != nil {
 		return false
 	}
