@@ -17,6 +17,10 @@ import (
 const randomTestIters = 1000
 
 func TestPoint(t *testing.T) {
+	t.Run("Uninitialized", func(t *testing.T) {
+		var p Point
+		require.Panics(t, func() { assertPointsValid(&p) })
+	})
 	t.Run("S11n", testPointS11n)
 	t.Run("Add", testPointAdd)
 	t.Run("Double", testPointDouble)
@@ -63,6 +67,9 @@ func testPointS11n(t *testing.T) {
 		p, err = NewPointFromBytes(idBytes)
 		require.NoError(t, err, "NewPointFromBytes(idUncompressed)")
 		requirePointDeepEquals(t, NewIdentityPoint(), p, "NewPointFromBytes(idCompressed)")
+
+		_, err = newRcvr().SetBytes([]byte{69})
+		require.Error(t, err, "SetBytes(69)")
 	})
 	t.Run("NewPointFromCoords", func(t *testing.T) {
 		p, err := NewPointFromCoords((*[CoordSize]byte)(gX.Bytes()), (*[CoordSize]byte)(gY.Bytes()))
@@ -76,6 +83,51 @@ func testPointS11n(t *testing.T) {
 		require.NoError(t, err, "g.XBytes()")
 
 		require.EqualValues(t, gX.Bytes(), b, "g.XBytes()")
+
+		_, err = NewIdentityPoint().XBytes()
+		require.Error(t, err, "Identity.XBytes()")
+	})
+	t.Run("Malformed/Compressed", func(t *testing.T) {
+		p := newRcvr().MustRandomize()
+		pBytes := p.CompressedBytes()
+
+		p2, err := NewIdentityPoint().SetCompressedBytes(pBytes)
+		require.NoError(t, err, "SetCompressedBytes(pCompressed)")
+		requirePointEquals(t, p, p2, "p decompressed")
+
+		b := pBytes[:len(pBytes)-1]
+
+		p2, err = NewIdentityPoint().SetCompressedBytes(b)
+		require.Nil(t, p2, "SetCompressedBytes(truncated)")
+		require.Error(t, err, "SetCompressedBytes(truncated)")
+
+		b = append([]byte{}, pBytes...)
+		b[0] = 69
+
+		p2, err = NewIdentityPoint().SetCompressedBytes(b)
+		require.Nil(t, p2, "SetCompressedBytes(badPrefix)")
+		require.Error(t, err, "SetCompressedBytes(badPrefix)")
+	})
+	t.Run("Malformed/Uncompressed", func(t *testing.T) {
+		p := newRcvr().MustRandomize()
+		pBytes := p.UncompressedBytes()
+
+		p2, err := NewIdentityPoint().SetUncompressedBytes(pBytes)
+		require.NoError(t, err, "SetUncompressedBytes(pUncompressed)")
+		requirePointEquals(t, p, p2, "p uncompressed")
+
+		b := pBytes[:len(pBytes)-1]
+
+		p2, err = NewIdentityPoint().SetUncompressedBytes(b)
+		require.Nil(t, p2, "SetUncompressedBytes(truncated)")
+		require.Error(t, err, "SetUncompressedBytes(truncated)")
+
+		b = append([]byte{}, pBytes...)
+		b[0] = 23
+
+		p2, err = NewIdentityPoint().SetUncompressedBytes(b)
+		require.Nil(t, p2, "SetUncompressedBytes(badPrefix)")
+		require.Error(t, err, "SetUncompressedBytes(badPrefix)")
 	})
 }
 

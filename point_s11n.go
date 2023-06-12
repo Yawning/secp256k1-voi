@@ -249,7 +249,9 @@ func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 
 	xFe, err := field.NewElementFromCanonicalBytes((*[field.ElementSize]byte)(xScalar.Bytes()))
 	if err != nil {
-		return nil, fmt.Errorf("secp256k1: invalid x-coordinate scalar: %w", err)
+		// This can NEVER happen as Scalar.Bytes() returns the canonical
+		// representation, and `n < p`.
+		panic(fmt.Errorf("secp256k1: invalid x-coordinate scalar: %w", err))
 	}
 
 	// The 1st bit indicates if the x-coordinate was larger than n.

@@ -55,6 +55,8 @@ func PreHashSchnorrMessage(name string, msg []byte) ([]byte, error) {
 // SignSchnorr signs signs `msg` using the PrivateKey `k`, using the
 // signing procedure as specified in BIP-0340.  It returns the
 // byte-encoded signature.
+//
+// Note: If `rand` is nil, the [crypto/rand.Reader] will be used.
 func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 	// BIP-0340 cautions about how deterministic nonce creation a la
 	// RFC6979 can lead to key compromise if the same key is shared

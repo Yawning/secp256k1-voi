@@ -9,6 +9,7 @@ package secec
 
 import (
 	"crypto"
+	csrand "crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -118,15 +119,17 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 func (k *PublicKey) IsYOdd() bool {
 	// Since the PublicKey caches the uncompressed point, this
 	// is simple and fast.
-	return k.isYOdd() != 0
+	_, yIsOdd := splitUncompressedPoint(k.pointBytes)
+	return yIsOdd != 0
 }
 
-func (k *PublicKey) isYOdd() uint64 {
-	return uint64(k.pointBytes[secp256k1.UncompressedPointSize-1] & 1)
-}
-
-// GenerateKey generates a new PrivateKey from `rand`.
+// GenerateKey generates a new PrivateKey from `rand`.  If `rand` is nil,
+// [crypto/rand.Reader] will be used.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
+	if rand == nil {
+		rand = csrand.Reader
+	}
+
 	s, err := sampleRandomScalar(rand)
 	if err != nil {
 		return nil, err

@@ -84,6 +84,7 @@ func testSchnorrKAT(t *testing.T) {
 			derivedPk, err := NewSchnorrPublicKeyFromPoint(sk.PublicKey().Point())
 			require.NoError(t, err, "NewSchnorrPublicKeyFromPoint")
 
+			require.True(t, derivedPk.Equal(pk), "derivedPk.Equal(pk)")
 			require.EqualValues(t, pk.Bytes(), derivedPk.Bytes(), "pk.Bytes() == deriviedPk.Bytes()")
 			require.EqualValues(t, 1, pk.point.Equal(derivedPk.point), "pk.Point() == derivedPk.Point()")
 

@@ -71,6 +71,14 @@ func TestScalar(t *testing.T) {
 			require.EqualValues(t, 1, isGt, "[%d]: (gt).IsGreaterThanHalfN", i)
 		}
 	})
+
+	t.Run("Zero", func(t *testing.T) {
+		s := NewScalar().MustRandomize()
+		require.EqualValues(t, 0, s.IsZero(), "(rand).IsZero()")
+
+		s.Zero()
+		require.EqualValues(t, 1, s.IsZero(), "(rand.Zero()).IsZero()")
+	})
 }
 
 func BenchmarkScalar(b *testing.B) {

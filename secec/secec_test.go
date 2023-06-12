@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/yawning/secp256k1-voi"
 )
 
 const testMessage = "Most lawyers couldn’t recognize a Ponzi scheme if they were having dinner with Charles Ponzi."
@@ -73,6 +75,19 @@ func TestSecec(t *testing.T) {
 		tmp[0] ^= 0x69
 		ok = pub.VerifyASN1(tmp, sig)
 		require.False(t, ok, "VerifyASN1 - Corrupted h")
+
+		r, s, _, err := priv.Sign(rand.Reader, testMessageHash)
+		require.NoError(t, err, "Sign")
+
+		ok = pub.Verify(testMessageHash, r, s)
+		require.True(t, ok, "Verify")
+
+		// Test some pathological cases.
+		var zero secp256k1.Scalar
+		err = verify(pub, testMessageHash, &zero, s)
+		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero r")
+		err = verify(pub, testMessageHash, r, &zero)
+		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero s")
 	})
 	t.Run("ECDSA/Recover", func(t *testing.T) {
 		// TODO: It would be nice to find test vectors for this...
@@ -86,6 +101,16 @@ func TestSecec(t *testing.T) {
 		require.NoError(t, err, "RecoverPublicKey")
 
 		require.True(t, priv.PublicKey().Equal(q))
+
+		// Test some pathological cases.
+		var zero secp256k1.Scalar
+		_, err = RecoverPublicKey(testMessageHash, &zero, s, recoveryID)
+		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero r")
+		_, err = RecoverPublicKey(testMessageHash, r, &zero, recoveryID)
+		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero s")
+
+		_, err = RecoverPublicKey(testMessageHash, r, s, recoveryID+27)
+		require.Error(t, err, "RecoverPublicKey - Bad recovery ID")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
 	t.Run("Schnorr", func(t *testing.T) {
@@ -94,18 +119,24 @@ func TestSecec(t *testing.T) {
 
 		pub := priv.SchnorrPublicKey()
 
-		sig, err := priv.SignSchnorr(rand.Reader, testMessageHash)
+		preHashedMsg, err := PreHashSchnorrMessage(
+			"secp256k1-voi/BIP0340/test",
+			[]byte(testMessage),
+		)
+		require.NoError(t, err, "PreHashSchnorrMessage")
+
+		sig, err := priv.SignSchnorr(rand.Reader, preHashedMsg)
 		require.NoError(t, err, "SignSchnorr")
 
-		ok := pub.Verify(testMessageHash, sig)
+		ok := pub.Verify(preHashedMsg, sig)
 		require.True(t, ok, "Verify")
 
 		tmp := append([]byte{}, sig...)
 		tmp[0] ^= 0x69
-		ok = pub.Verify(testMessageHash, tmp)
+		ok = pub.Verify(preHashedMsg, tmp)
 		require.False(t, ok, "Verify - Corrupted sig")
 
-		tmp = append([]byte{}, testMessageHash...)
+		tmp = append([]byte{}, preHashedMsg...)
 		tmp[0] ^= 0x69
 		ok = pub.Verify(tmp, sig)
 		require.False(t, ok, "Verify - Corrupted msg")

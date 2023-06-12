@@ -370,7 +370,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	// - errInvalidRorS can never happen the way this test is written,
 	// because ParseASN1Signature returns errInvalidScalar instead.
 	// - errInvalidDigest can never happen because none of the test
-	// vectors pass in a trucated (< 128-bit) digest.
+	// vectors pass in a trucated (< 256-bit) digest.
 	var (
 		hasFlagMustRejectEarly, hasFlagMayRejectEarly, hasFlagValid bool
 		expectedEarlyError                                          error

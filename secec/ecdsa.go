@@ -35,6 +35,7 @@ var (
 // tuple `(r, s, recovery_id)`.
 //
 // Note:
+// - If `rand` is nil, the [crypto/rand.Reader] will be used.
 // - `s` will always be less than or equal to `n / 2`.
 // - `recovery_id` will always be in the range `[0, 3]`.  Adding `27`,
 // `31`, or the EIP-155 nonsense is left to the caller.
@@ -47,7 +48,9 @@ func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // ASN.1 encoded signature.
 //
-// Note: `s` will always be less than or equal to `n / 2`.
+// Note:
+// - If `rand` is nil, the [crypto/rand.Reader] will be used.
+// - `s` will always be less than or equal to `n / 2`.
 func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 	r, s, _, err := k.Sign(rand, hash)
 	if err != nil {
@@ -122,6 +125,8 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 		return nil, err
 	}
 	if R.IsIdentity() != 0 {
+		// This can NEVER happen as secp256k1.RecoverPoint always
+		// returns a point that is on the curve or an error.
 		return nil, errRIsInfinity
 	}
 
@@ -320,21 +325,13 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 // Note: This also will reduce the resulting scalar such that it is
 // in the range [0, n), which is fine for ECDSA.
 func hashToScalar(hash []byte) (*secp256k1.Scalar, error) {
-	// Limit len(hash) to something "sensible".
-	hLen := len(hash)
-	if hLen < 16 {
+	if len(hash) < secp256k1.ScalarSize {
 		return nil, errInvalidDigest
 	}
 
 	// TLDR; The left-most Ln-bits of hash.
-	var (
-		tmp    [secp256k1.ScalarSize]byte
-		offset = 0
-	)
-	if hLen < secp256k1.ScalarSize {
-		offset = secp256k1.ScalarSize - hLen
-	}
-	copy(tmp[offset:], hash)
+	var tmp [secp256k1.ScalarSize]byte
+	copy(tmp[:], hash)
 
 	s, _ := secp256k1.NewScalar().SetBytes(&tmp) // Reduction info unneeded.
 	return s, nil
