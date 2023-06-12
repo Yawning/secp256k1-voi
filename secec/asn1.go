@@ -18,6 +18,8 @@ import (
 var (
 	oidEcPublicKey = stdasn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	oidSecp256k1   = stdasn1.ObjectIdentifier{1, 3, 132, 0, 10}
+
+	errInvalidAsn1Sig = errors.New("secp256k1/secec/ecdsa: malformed ASN.1 signature")
 )
 
 // ParseASN1PublicKey parses an ASN.1 encoded public key as specified in
@@ -76,7 +78,7 @@ func ParseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, erro
 		!inner.ReadASN1Integer(&rBytes) ||
 		!inner.ReadASN1Integer(&sBytes) ||
 		!inner.Empty() {
-		return nil, nil, errors.New("secp256k1/secec/ecdsa: malformed ASN.1 signature")
+		return nil, nil, errInvalidAsn1Sig
 	}
 
 	r, err := bytesToCanonicalScalar(rBytes)

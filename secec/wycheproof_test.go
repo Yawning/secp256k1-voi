@@ -10,6 +10,7 @@ import (
 	_ "crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -62,17 +63,39 @@ var (
 
 	// Pathologically bad ASN.1 signature encodings that should always
 	// fail to parse.
-	sigFlagsRejectEarly = map[string]bool{
+	sigFlagsMustRejectEarly = map[string]bool{
 		"BerEncodedSignature":     true,
 		"InvalidTypesInSignature": true,
+		"IntegerOverflow":         true,
 		"InvalidEncoding":         true,
 		"MissingZero":             true,
+		"RangeCheck":              true,
+	}
+
+	// Failure test cases that this implementation may reject during
+	// decoding, or may reject after doing the full verification.
+	sigFlagsMayRejectEarly = map[string]bool{
+		"ArithmeticError": true,
+		"InvalidSignature": true,
+		"ModifiedInteger": true,
+		"ModifiedSignature": true,
+	}
+
+	sigFlagsAlwaysValid = map[string]bool{
+		"EdgeCasePublicKey": true,
+		"EdgeCaseShamirMultiplication": true,
+		"ModularInverse": true,
+		"SmallRandS": true,
+		"SpecialCaseHash": true,
+		"ValidSignature": true,
 	}
 
 	sigHash = map[string]crypto.Hash{
 		"SHA-256": crypto.SHA256,
 		"SHA-512": crypto.SHA512,
 	}
+
+	errSIsTooLarge = errors.New("secp256k1/secec/ecdsa: s is greater than n/2")
 )
 
 type TestVectors struct {
@@ -318,12 +341,58 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 		bipSig := append([]byte{}, sigBytes...)
 		bipSig = append(bipSig, 69)
 		sigOkOneshot = publicKey.VerifyASN1BIP0066(hBytes, bipSig)
+
+		// The following test cases are test cases that could/should
+		// trip the malleability check, but are flagged differently.
+		//
+		// 176 - Signature with special case values r=1 and s=n - 1
+		// 200 - Signature with special case values r=n - 1 and s=n - 1
+		// 388 - edge case for signature malleability
+		//
+		// Of which we only need to fixup the flags for 388, because
+		// the other cases, the signature is flat out invalid even
+		// without the special case.
+		switch tc.ID {
+		case 388:
+			tc.Flags = []string{"SignatureMalleabilityBitcoin"}
+		}
 	}
 	require.EqualValues(t, !mustFail, sigOkOneshot, "one-shot signature verification: %+v", tc.Flags)
 
-	var hasFlagRejectEarly bool
+	// Convert flags to expected error (or lack-thereof).
+	//
+	// Notes:
+	// - errInvalidRorS can never happen the way this test is written,
+	// because ParseASN1Signature returns errInvalidScalar instead.
+	// - errInvalidDigest can never happen because none of the test
+	// vectors pass in a trucated (< 128-bit) digest.
+	var (
+		hasFlagMustRejectEarly, hasFlagMayRejectEarly, hasFlagValid bool
+		expectedEarlyError error
+		expectedErrors []error
+	)
 	for _, flag := range tc.Flags {
-		hasFlagRejectEarly = hasFlagRejectEarly || sigFlagsRejectEarly[flag]
+		switch flag {
+		case "BerEncodedSignature", "InvalidTypesInSignature", "InvalidEncoding", "MissingZero":
+			// These are the cases that are always caught by ParseASN1Signature.
+			require.Nil(t, expectedEarlyError)
+			expectedEarlyError = errInvalidAsn1Sig
+		case "ArithmeticError":
+			// Can be sometimes set along with PointDuplication.
+			expectedErrors = append(expectedErrors, errRIsInfinity)
+		case "InvalidSignature", "ModifiedInteger", "ModifiedSignature", "Untruncatedhash":
+			require.Nil(t, expectedErrors)
+			expectedErrors = []error{errVNeqR}
+		case "PointDuplication":
+			// Can be sometimes set along with ArithmeticError.
+			expectedErrors = append(expectedErrors, []error{errRIsInfinity,errVNeqR}...)
+		case "SignatureMalleabilityBitcoin":
+			require.Nil(t, expectedErrors)
+			expectedErrors = []error{errSIsTooLarge}
+		}
+		hasFlagMustRejectEarly = hasFlagMustRejectEarly || sigFlagsMustRejectEarly[flag]
+		hasFlagMayRejectEarly = hasFlagMayRejectEarly || sigFlagsMayRejectEarly[flag]
+		hasFlagValid = hasFlagValid || sigFlagsAlwaysValid[flag]
 	}
 
 	// It would be nice if this could assert that things get rejected
@@ -331,6 +400,23 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	// is split between the parsing and the actual signature verify.
 	r, s, err := ParseASN1Signature(sigBytes)
 	if err != nil {
+		require.False(t, hasFlagValid)
+		require.True(t, hasFlagMustRejectEarly || hasFlagMayRejectEarly)
+		switch expectedEarlyError {
+		case nil:
+			// There are test cases where it's not possible to tell
+			// from the flags alone if the ASN.1 parser or the scalar
+			// s11n will reject the signature.
+			requireErrorOneOf(t, err, []error{
+				errInvalidAsn1Sig,
+				errInvalidScalar,
+			})
+		default:
+			// There are test cases where the error originates from
+			// the ASN.1 parser.
+			require.ErrorIs(t, err, expectedEarlyError)
+		}
+
 		// As a consolation prize, we re-do the signature verification
 		// by calling the internal routines, and assert that totally
 		// screwed up signatures get rejected by the ASN.1 parser.
@@ -338,16 +424,28 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 			return
 		}
 	}
-	require.False(t, hasFlagRejectEarly, "failed to reject bad/exotic encoding: %+v", tc.Flags)
+	require.False(t, hasFlagMustRejectEarly, "failed to reject bad/exotic encoding: %+v", tc.Flags)
 	require.NoError(t, err, "parseASN1Signature: %+v", tc.Flags)
 
-	splitSigOk := nil == verify(publicKey, hBytes, r, s) // Need the un-fixed up result.
+	err = verify(publicKey, hBytes, r, s)
+	splitSigOk := nil == err // Need the un-fixed up result to cross-check the recovery.
 	sigOk := splitSigOk
-	if tg.Type == typeEcdsaShitcoinVerify {
+	if tg.Type == typeEcdsaShitcoinVerify && sigOk {
 		// Special case: `s <= n/2` is only enforced in VerifyASN1Shitcoin.
-		sigOk = sigOk && s.IsGreaterThanHalfN() == 0
+		//
+		// So force a failure and set the appropriate error if the signature
+		// is otherwise valid under standard semantics.
+		if sOk := s.IsGreaterThanHalfN() == 0; !sOk {
+			sigOk = false
+			err = errSIsTooLarge
+		}
 	}
 	require.EqualValues(t, !mustFail, sigOk, "split signature verification: %+v", tc.Flags)
+	if err != nil {
+		require.False(t, hasFlagValid)
+		require.NotNil(t, err, expectedErrors)
+		requireErrorOneOf(t, err, expectedErrors)
+	}
 
 	// Note: This checks the recovery result against verify rather than
 	// the test case pass/fail, as the Shitcoin flavored ECDSA test
@@ -457,4 +555,13 @@ func TestWycheproof(t *testing.T) {
 	t.Run("ECDSA/Asn/SHA256", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaAsnSha256) })
 	t.Run("ECDSA/Asn/SHA512", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaAsnSha512) })
 	t.Run("ECDSA/Shitcoin", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaShitcoin) })
+}
+
+func requireErrorOneOf(t *testing.T, err error, targets []error) {
+	for _, target := range targets {
+		if errors.Is(err, target) {
+			return
+		}
+	}
+	require.Fail(t, "requireErrorOneOf", "error '%v' is not one of '%+v'", err, targets)
 }
