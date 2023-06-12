@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"gitlab.com/yawning/secp256k1-voi"
 	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
@@ -34,6 +35,22 @@ const (
 
 	domainSepSchnorr = "BIP0340-Sign"
 )
+
+// PreHashSchnorrMessage pre-hashes the message `msg`, with the
+// domain-separator `name`, as suggested in BIP-0340.  It returns
+// the byte-encoded pre-hashed message.
+//
+// Note: The spec is silent regarding 0-length `name` values.  This
+// implementation rejects them with an error, given that the main
+// motivation for pre-hashing in the first place is domain-separation.
+func PreHashSchnorrMessage(name string, msg []byte) ([]byte, error) {
+	// Go strings are UTF-8 by default, but this accepts user input.
+	if n := strings.ToValidUTF8(name, ""); n != name || len(name) == 0 {
+		return nil, fmt.Errorf("secp256k1/secec/schnorr: invalid domain-separator")
+	}
+
+	return schnorrTaggedHash(name, msg), nil
+}
 
 // SignSchnorr signs signs `msg` using the PrivateKey `k`, using the
 // signing procedure as specified in BIP-0340.  It returns the
