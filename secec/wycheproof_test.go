@@ -75,19 +75,19 @@ var (
 	// Failure test cases that this implementation may reject during
 	// decoding, or may reject after doing the full verification.
 	sigFlagsMayRejectEarly = map[string]bool{
-		"ArithmeticError": true,
-		"InvalidSignature": true,
-		"ModifiedInteger": true,
+		"ArithmeticError":   true,
+		"InvalidSignature":  true,
+		"ModifiedInteger":   true,
 		"ModifiedSignature": true,
 	}
 
 	sigFlagsAlwaysValid = map[string]bool{
-		"EdgeCasePublicKey": true,
+		"EdgeCasePublicKey":            true,
 		"EdgeCaseShamirMultiplication": true,
-		"ModularInverse": true,
-		"SmallRandS": true,
-		"SpecialCaseHash": true,
-		"ValidSignature": true,
+		"ModularInverse":               true,
+		"SmallRandS":                   true,
+		"SpecialCaseHash":              true,
+		"ValidSignature":               true,
 	}
 
 	sigHash = map[string]crypto.Hash{
@@ -368,8 +368,8 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	// vectors pass in a trucated (< 128-bit) digest.
 	var (
 		hasFlagMustRejectEarly, hasFlagMayRejectEarly, hasFlagValid bool
-		expectedEarlyError error
-		expectedErrors []error
+		expectedEarlyError                                          error
+		expectedErrors                                              []error
 	)
 	for _, flag := range tc.Flags {
 		switch flag {
@@ -385,7 +385,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 			expectedErrors = []error{errVNeqR}
 		case "PointDuplication":
 			// Can be sometimes set along with ArithmeticError.
-			expectedErrors = append(expectedErrors, []error{errRIsInfinity,errVNeqR}...)
+			expectedErrors = append(expectedErrors, []error{errRIsInfinity, errVNeqR}...)
 		case "SignatureMalleabilityBitcoin":
 			require.Nil(t, expectedErrors)
 			expectedErrors = []error{errSIsTooLarge}
