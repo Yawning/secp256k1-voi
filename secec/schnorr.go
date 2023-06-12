@@ -25,9 +25,6 @@ const (
 	// SchnorrSignatureSize is the size of a BIP-0340 Schnorr signature
 	// in bytes.
 	SchnorrSignatureSize = 64
-	// SchnorrMessageSize is the size of a BIP-0340 Schnorr signature
-	// message in bytes.
-	SchnorrMessageSize = 32
 
 	schnorrEntropySize = 32
 
@@ -38,14 +35,10 @@ const (
 	domainSepSchnorr = "BIP0340-Sign"
 )
 
-// SignSchnorr signs signs `msg` (which MUST be `SchnorrMessageSize`
-// bytes in length) using the PrivateKey `k`, using the signing procedure
-// as specified in BIP-0340.  It returns the byte-encoded signature.
+// SignSchnorr signs signs `msg` using the PrivateKey `k`, using the
+// signing procedure as specified in BIP-0340.  It returns the
+// byte-encoded signature.
 func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
-	if len(msg) != SchnorrMessageSize {
-		return nil, errors.New("secp256k1/secec/schnorr: invalid message size")
-	}
-
 	// BIP-0340 cautions about how deterministic nonce creation a la
 	// RFC6979 can lead to key compromise if the same key is shared
 	// between ECDSA and Schnorr signatures due to nonce reuse.
@@ -70,7 +63,7 @@ func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return signSchnorr(&auxEntropy, k, (*[SchnorrMessageSize]byte)(msg))
+	return signSchnorr(&auxEntropy, k, msg)
 }
 
 // SchnorrPublicKey is a public key for verifying BIP-0340 Schnorr signatures.
@@ -109,9 +102,6 @@ func (k *SchnorrPublicKey) Equal(x crypto.PublicKey) bool {
 // in BIP-0340.  Its return value records whether the signature is
 // valid.
 func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
-	if len(msg) != SchnorrMessageSize {
-		return false
-	}
 	if len(sig) != SchnorrSignatureSize {
 		return false
 	}
@@ -214,7 +204,7 @@ func schnorrTaggedHash(tag string, vals ...[]byte) []byte {
 	return h.Sum(nil)
 }
 
-func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg *[SchnorrMessageSize]byte) ([]byte, error) {
+func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 	// The algorithm Sign(sk, m) is defined as:
 
 	// Let d' = int(sk)
@@ -315,9 +305,6 @@ func verifySchnorrSelf(d *secp256k1.Scalar, pkXBytes, msg, sig []byte) bool {
 }
 
 func parseSchnorrSignature(pkXBytes, msg, sig []byte) (bool, *secp256k1.Scalar, *secp256k1.Scalar, []byte) {
-	if len(msg) != SchnorrMessageSize {
-		return false, nil, nil, nil
-	}
 	if len(sig) != SchnorrSignatureSize {
 		return false, nil, nil, nil
 	}

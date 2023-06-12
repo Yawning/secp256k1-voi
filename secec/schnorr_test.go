@@ -93,7 +93,7 @@ func testSchnorrKAT(t *testing.T) {
 
 			auxRandBytes := (*[schnorrEntropySize]byte)(helpers.MustBytesFromHex(vec[fieldAuxRand]))
 
-			derivedSig, err := signSchnorr(auxRandBytes, sk, (*[SchnorrMessageSize]byte)(msgBytes))
+			derivedSig, err := signSchnorr(auxRandBytes, sk, msgBytes)
 			require.NoError(t, err, "signSchnorr")
 			require.EqualValues(t, sigBytes, derivedSig)
 		})
