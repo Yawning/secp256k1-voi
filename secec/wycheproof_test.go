@@ -262,6 +262,11 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 		}
 		require.NoError(t, err, "ParseASN1PublicKey: %+v", tc.Flags)
 
+		if !hasFlagCompressed {
+			asn1Bytes := publicKey.ASN1Bytes()
+			require.EqualValues(t, publicBytes, asn1Bytes, "publicKey.ASN1Bytes")
+		}
+
 		// The private key encoding can have leading 00s, or
 		// leading 00s trimmed.  Apparently I'm supposed to accept
 		// anything that represents a scalar in the correct range.

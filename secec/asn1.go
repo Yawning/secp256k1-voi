@@ -93,6 +93,19 @@ func ParseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, erro
 	return r, s, nil
 }
 
+func buildASN1PublicKey(pk *PublicKey) []byte {
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1ObjectIdentifier(oidEcPublicKey)
+			b.AddASN1ObjectIdentifier(oidSecp256k1)
+		})
+		b.AddASN1BitString(pk.Bytes()) // Uncompressed SEC1 format.
+	})
+
+	return b.BytesOrPanic()
+}
+
 func buildASN1Signature(r, s *secp256k1.Scalar) []byte {
 	var rBig, sBig big.Int
 	rBig.SetBytes(r.Bytes())
