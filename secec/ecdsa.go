@@ -37,11 +37,10 @@ var (
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // tuple `(r, s, recovery_id)`.
 //
-// Note:
-// - If `rand` is nil, the [crypto/rand.Reader] will be used.
-// - `s` will always be less than or equal to `n / 2`.
-// - `recovery_id` will always be in the range `[0, 3]`.  Adding `27`,
-// `31`, or the EIP-155 nonsense is left to the caller.
+// Notes: If `rand` is nil, the [crypto/rand.Reader] will be used.
+// `s` will always be less than or equal to `n / 2`.  `recovery_id`
+// will always be in the range `[0, 3]`.  Adding `27`, `31`, or the
+// EIP-155 nonsense is left to the caller.
 func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
 	return sign(rand, k, hash)
 }
@@ -51,9 +50,8 @@ func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // ASN.1 encoded signature.
 //
-// Note:
-// - If `rand` is nil, the [crypto/rand.Reader] will be used.
-// - `s` will always be less than or equal to `n / 2`.
+// Note: If `rand` is nil, the [crypto/rand.Reader] will be used. `s`
+// will always be less than or equal to `n / 2`.
 func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 	r, s, _, err := k.Sign(rand, hash)
 	if err != nil {
