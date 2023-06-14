@@ -10,6 +10,7 @@ package secec
 import (
 	"crypto"
 	csrand "crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -112,7 +113,8 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 		return false
 	}
 
-	return other.point.Equal(k.point) == 1
+	// Comparing the serialized form is faster than comparing points.
+	return subtle.ConstantTimeCompare(k.pointBytes, other.pointBytes) == 1
 }
 
 // IsYOdd returns true iff the y-coordinate of the PublicKey is odd.

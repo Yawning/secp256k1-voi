@@ -113,7 +113,8 @@ func (k *SchnorrPublicKey) Equal(x crypto.PublicKey) bool {
 		return false
 	}
 
-	return other.point.Equal(k.point) == 1
+	// Comparing the serialized form is faster than comparing points.
+	return subtle.ConstantTimeCompare(k.xBytes, other.xBytes) == 1
 }
 
 // Verify verifies the Schnorr signature `sig` of `msg`, using the
