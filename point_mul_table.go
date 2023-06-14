@@ -6,7 +6,6 @@ package secp256k1
 
 import (
 	_ "embed"
-	"fmt"
 	"unsafe"
 
 	"gitlab.com/yawning/secp256k1-voi/internal/field"
@@ -79,10 +78,7 @@ var generatorHugeAffineTable = func() *[ScalarSize]hugeAffinePointMultTable {
 	// Unpack the pre-generated multiple tables.  nistec's assembly
 	// implementations just point into the table, and do fixups as
 	// needed to handle byte-order, but just deserializing is easier.
-	var (
-		off int
-		err error
-	)
+	var off int
 	tbl := new([ScalarSize]hugeAffinePointMultTable)
 	for i := range tbl {
 		for j := range tbl[i] {
@@ -92,12 +88,8 @@ var generatorHugeAffineTable = func() *[ScalarSize]hugeAffinePointMultTable {
 			off += field.ElementSize
 
 			p := &tbl[i][j]
-			if _, err = p.x.SetCanonicalBytes((*[field.ElementSize]byte)(xBytes)); err != nil {
-				panic(fmt.Errorf("secp256k1: failed to deserialize table x-coord: %w", err))
-			}
-			if _, err = p.y.SetCanonicalBytes((*[field.ElementSize]byte)(yBytes)); err != nil {
-				panic(fmt.Errorf("secp256k1: failed to deserialize table y-coord: %w", err))
-			}
+			p.x.MustSetCanonicalBytes((*[field.ElementSize]byte)(xBytes))
+			p.y.MustSetCanonicalBytes((*[field.ElementSize]byte)(yBytes))
 		}
 	}
 

@@ -7,6 +7,8 @@ package helpers
 import (
 	"math"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestUint64IsZero(t *testing.T) {
@@ -19,9 +21,7 @@ func TestUint64IsZero(t *testing.T) {
 		if v == 0 {
 			expected = 1
 		}
-		if res := Uint64IsZero(v); res != expected {
-			t.Errorf("Uint64IsZero(%d) = %d; want %d", v, res, expected)
-		}
+		require.Equal(t, expected, Uint64IsZero(v), "Uint64IsZero(%d)", v)
 	}
 }
 
@@ -35,8 +35,10 @@ func TestUint64IsNonzero(t *testing.T) {
 		if v != 0 {
 			expected = 1
 		}
-		if res := Uint64IsNonzero(v); res != expected {
-			t.Errorf("Uint64IsNonzero(%d) = %d; want %d", v, res, expected)
-		}
+		require.Equal(t, expected, Uint64IsNonzero(v), "Uint64IsNonzero(%d)", v)
 	}
+}
+
+func TestMustBytesFromHex(t *testing.T) {
+	require.Panics(t, func() { MustBytesFromHex("The Light - Hex-Sealed Fusion") })
 }

@@ -5,6 +5,8 @@
 package secec
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"testing"
@@ -12,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/yawning/secp256k1-voi"
+	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 const testMessage = "Most lawyers couldn’t recognize a Ponzi scheme if they were having dinner with Charles Ponzi."
@@ -24,6 +27,10 @@ func hashMsgForTests(b []byte) []byte {
 }
 
 func TestSecec(t *testing.T) {
+	privNist, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err, "GenerateKey - P256")
+	pubNist := privNist.Public()
+
 	// Basic integration tests.  Wycheproof will take care of most of
 	// the in-depth testing.
 	t.Run("ECDH", func(t *testing.T) {
@@ -76,6 +83,9 @@ func TestSecec(t *testing.T) {
 		ok = pub.VerifyASN1(tmp, sig)
 		require.False(t, ok, "VerifyASN1 - Corrupted h")
 
+		ok = pub.VerifyASN1(testMessageHash[:5], sig)
+		require.False(t, ok, "VerifyASN1 - Truncated h")
+
 		r, s, _, err := priv.Sign(rand.Reader, testMessageHash)
 		require.NoError(t, err, "Sign")
 
@@ -88,6 +98,16 @@ func TestSecec(t *testing.T) {
 		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero r")
 		err = verify(pub, testMessageHash, r, &zero)
 		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero s")
+
+		badSig, err := priv.SignASN1(rand.Reader, testMessageHash[:30])
+		require.Nil(t, badSig, "SignASN1 - Truncated hash")
+		require.ErrorIs(t, err, errInvalidDigest, "SignASN1 - Truncated hash")
+
+		require.False(t, priv.Equal(privNist), "priv.Equal(privNist)")
+		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
+
+		pubUntyped := priv.Public()
+		require.True(t, pub.Equal(pubUntyped), "pub.Equal(pubUntyped)")
 	})
 	t.Run("ECDSA/Recover", func(t *testing.T) {
 		// TODO: It would be nice to find test vectors for this...
@@ -108,9 +128,10 @@ func TestSecec(t *testing.T) {
 		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero r")
 		_, err = RecoverPublicKey(testMessageHash, r, &zero, recoveryID)
 		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero s")
-
 		_, err = RecoverPublicKey(testMessageHash, r, s, recoveryID+27)
 		require.Error(t, err, "RecoverPublicKey - Bad recovery ID")
+		_, err = RecoverPublicKey(testMessageHash[:31], r, s, recoveryID)
+		require.ErrorIs(t, err, errInvalidDigest, "RecoverPublicKey - Truncated h")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
 	t.Run("Schnorr", func(t *testing.T) {
@@ -125,23 +146,118 @@ func TestSecec(t *testing.T) {
 		)
 		require.NoError(t, err, "PreHashSchnorrMessage")
 
+		_, d := priv.valuesForSignSchnorr()
+
 		sig, err := priv.SignSchnorr(rand.Reader, preHashedMsg)
 		require.NoError(t, err, "SignSchnorr")
 
 		ok := pub.Verify(preHashedMsg, sig)
 		require.True(t, ok, "Verify")
+		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, sig)
+		require.True(t, ok, "VerifySelf")
 
 		tmp := append([]byte{}, sig...)
 		tmp[0] ^= 0x69
 		ok = pub.Verify(preHashedMsg, tmp)
 		require.False(t, ok, "Verify - Corrupted sig")
+		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, tmp)
+		require.False(t, ok, "VerifySelf - Corrupted sig")
+
+		ok = pub.Verify(tmp, sig[:17])
+		require.False(t, ok, "Verify - Truncated sig")
+		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, sig[:15])
+		require.False(t, ok, "VerifySelf - Truncated sig")
 
 		tmp = append([]byte{}, preHashedMsg...)
 		tmp[0] ^= 0x69
 		ok = pub.Verify(tmp, sig)
 		require.False(t, ok, "Verify - Corrupted msg")
+		ok = verifySchnorrSelf(d, pub.Bytes(), tmp, sig)
+		require.False(t, ok, "VerifySelf - Corrupted msg")
+
+		_, err = PreHashSchnorrMessage("", []byte(testMessage))
+		require.Error(t, err, "PreHashSchnorrMessage - no domain sep")
+
+		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
 	})
 	t.Run("Schnorr/TestVectors", testSchnorrKAT)
+	t.Run("PrivateKey/Generate", func(t *testing.T) {
+		priv, err := GenerateKey(nil)
+		require.NotNil(t, priv, "GenerateKey - nil")
+		require.NoError(t, err, "GenerateKey - nil")
+
+		// All-zero entropy source should cause the rejection sampling
+		// to give up, because it keeps generating scalars that are 0.
+		priv, err = GenerateKey(newZeroReader())
+		require.Nil(t, priv, "GenerateKey - zeroReader")
+		require.ErrorIs(t, err, errRejectionSampling, "GenerateKey - zeroReader")
+
+		// Broken (non-functional) entropy source should just fail.
+		priv, err = GenerateKey(newBadReader(13))
+		require.Nil(t, priv, "GenerateKey - badReader")
+		require.ErrorIs(t, err, errEntropySource, "GenerateKey - badReader")
+	})
+	t.Run("PrivateKey/Malformed", func(t *testing.T) {
+		for _, v := range [][]byte{
+			[]byte("trucated"),
+			helpers.MustBytesFromHex("0000000000000000000000000000000000000000000000000000000000000000"), // N+1
+			helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142"), // N+1
+		} {
+			k, err := NewPrivateKey(v)
+			require.Nil(t, k, "NewPrivateKey(%x)", v)
+			require.Error(t, err, "NewPrivateKey(%x)", v)
+		}
+	})
+	t.Run("PublicKey/Malformed", func(t *testing.T) {
+		k, err := NewPublicKey([]byte{0x00})
+		require.Nil(t, k, "NewPublicKey - identity")
+		require.ErrorIs(t, err, errAIsInfinity, "NewPublicKey - identity")
+
+		k, err = NewPublicKeyFromPoint(secp256k1.NewIdentityPoint())
+		require.Nil(t, k, "NewPublicKeyFromPoint - identity")
+		require.ErrorIs(t, err, errAIsInfinity, "NewPublicKeyFromPoint - identity")
+
+		require.PanicsWithValue(t, errAIsUninitialized, func() {
+			new(PublicKey).Bytes()
+		}, "uninitialized.Bytes()")
+	})
+	t.Run("PublicKey/Polarity", func(t *testing.T) {
+		var (
+			gotOdd, gotEven bool
+			i               int
+		)
+		for gotOdd == false && gotEven == false {
+			priv, err := GenerateKey(nil)
+			require.NoError(t, err, "GenerateKey")
+
+			pub := priv.PublicKey()
+
+			isOdd := pub.point.IsYOdd() == 1
+			gotOdd = gotOdd || isOdd
+			gotEven = gotEven || (!isOdd)
+
+			require.Equal(t, isOdd, pub.IsYOdd())
+			i++
+		}
+		t.Logf("%d iters to see both odd and even Y", i+1)
+
+		require.Panics(t, func() {
+			new(PublicKey).IsYOdd()
+		}, "uninitialized.IsYOdd()")
+	})
+	t.Run("SchnorrPublicKey/Malformed", func(t *testing.T) {
+		k, err := NewSchnorrPublicKey([]byte{0x45, 0x45, 0x45, 0x45})
+		require.Nil(t, k, "NewSchnorrPublicKey - truncated")
+		require.Error(t, err, "NewSchnorrPublicKey - truncated")
+
+		k, err = NewSchnorrPublicKeyFromPoint(secp256k1.NewIdentityPoint())
+		require.Nil(t, k, "NewSchnorrPublicKeyFromPoint - identity")
+		require.ErrorIs(t, err, errAIsInfinity, "NewSchnorrPublicKeyFromPoint - identity")
+
+		require.PanicsWithValue(t, errAIsUninitialized, func() {
+			new(SchnorrPublicKey).Bytes()
+		}, "uninitialized.Bytes()")
+	})
 }
 
 func BenchmarkSecec(b *testing.B) {

@@ -73,17 +73,26 @@ func TestScalar(t *testing.T) {
 	})
 
 	t.Run("Zero", func(t *testing.T) {
-		s := NewScalar().MustRandomize()
+		s := NewScalar().DebugMustRandomizeNonZero()
 		require.EqualValues(t, 0, s.IsZero(), "(rand).IsZero()")
 
 		s.Zero()
 		require.EqualValues(t, 1, s.IsZero(), "(rand.Zero()).IsZero()")
 	})
+
+	// Interal: "Why are you doing that" assertion tests.
+	require.Panics(t, func() {
+		newScalarFromSaturated(0xffffffffffffffff, 0xfffffffffffffffe, 0xbaaedce6af48a03b, 0xbfd25e8cd0364141)
+	})
+	require.Panics(t, func() {
+		s := newScalarFromSaturated(69, 69, 69, 69)
+		s.pow2k(s, 0)
+	})
 }
 
 func BenchmarkScalar(b *testing.B) {
 	b.Run("Invert/addchain", func(b *testing.B) {
-		s := NewScalar().MustRandomize()
+		s := NewScalar().DebugMustRandomizeNonZero()
 		b.ReportAllocs()
 		b.ResetTimer()
 
@@ -93,15 +102,19 @@ func BenchmarkScalar(b *testing.B) {
 	})
 }
 
-func (s *Scalar) MustRandomize() *Scalar {
+func (s *Scalar) DebugMustRandomizeNonZero() *Scalar {
 	var b [ScalarSize]byte
 	for {
 		if _, err := rand.Read(b[:]); err != nil {
 			panic("scalar: entropy source failure")
 		}
-		if _, err := s.SetCanonicalBytes(&b); err == nil {
-			return s
+		if _, err := s.SetCanonicalBytes(&b); err != nil {
+			continue
 		}
+		if s.IsZero() == 1 {
+			continue
+		}
+		return s
 	}
 }
 

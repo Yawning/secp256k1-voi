@@ -7,6 +7,7 @@ package secec
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,12 +102,12 @@ func testEcdsaK(t *testing.T) {
 		// Do it twice, to verify that signatures with no entropy are
 		// deterministic.
 
-		r1, s1, _, err := testKey.Sign(zeroReader{}, msg1Hash)
+		r1, s1, _, err := testKey.Sign(newZeroReader(), msg1Hash)
 		require.NoError(t, err, "k1.Sign(zeroReader, msg1)")
 		sigOk := testKey.PublicKey().Verify(msg1Hash, r1, s1)
 		require.True(t, sigOk, "sig1 ok")
 
-		r1check, s1check, _, err := testKey.Sign(zeroReader{}, msg1Hash)
+		r1check, s1check, _, err := testKey.Sign(newZeroReader(), msg1Hash)
 		require.NoError(t, err, "Sign(zeroReader, msg1) - again")
 
 		require.EqualValues(t, r1.Bytes(), r1check.Bytes(), "r1 != r1check")
@@ -114,7 +115,7 @@ func testEcdsaK(t *testing.T) {
 
 		// Signature 2 (testKey, all 0 entropy, msg2)
 
-		r2, s2, _, err := testKey.Sign(zeroReader{}, msg2Hash)
+		r2, s2, _, err := testKey.Sign(newZeroReader(), msg2Hash)
 		require.NoError(t, err, "k1.Sign(zeroReader, msg2)")
 		sigOk = testKey.PublicKey().Verify(msg2Hash, r2, s2)
 		require.True(t, sigOk, "sig2 ok")
@@ -141,7 +142,7 @@ func testEcdsaK(t *testing.T) {
 
 		// Signature 3 (testKey2, all 0 entropy, msg1)
 
-		r3, s3, _, err := testKey2.Sign(zeroReader{}, msg1Hash)
+		r3, s3, _, err := testKey2.Sign(newZeroReader(), msg1Hash)
 		require.NoError(t, err, "k2.Sign(zeroReader, msg1)")
 		sigOk = testKey2.PublicKey().Verify(msg1Hash, r3, s3)
 		require.True(t, sigOk, "sig3 ok")
@@ -161,10 +162,32 @@ func testEcdsaK(t *testing.T) {
 		require.NotEqualValues(t, r1.Bytes(), r4.Bytes(), "r1 != r4")
 		require.NotEqualValues(t, s1.Bytes(), s4.Bytes(), "s1 != s4")
 
-		// Finally, with actual entropy, using the same private key
+		// With actual entropy, using the same private key
 		// to sign the same message, should result in a non-deterministic
 		// signature.
+
+		// Signature 5 (testKey, no entropy source specified, msg1)
+
+		r5, s5, _, err := testKey.Sign(nil, msg1Hash)
+		require.NoError(t, err, "k1.Sign(nil, msg1")
+		sigOk = testKey.PublicKey().Verify(msg1Hash, r5, s5)
+		require.True(t, sigOk, "sig5 ok")
+
+		require.NotEqualValues(t, r1.Bytes(), r5.Bytes(), "r1 != r5")
+		require.NotEqualValues(t, s1.Bytes(), s5.Bytes(), "s1 != s5")
+		require.NotEqualValues(t, r4.Bytes(), r5.Bytes(), "r4 != r5")
+		require.NotEqualValues(t, s4.Bytes(), s5.Bytes(), "s4 != s5")
+
+		// Not specifying the entropy source results in non-deterministic
+		// signatures using the system entropy source.
 	})
+
+	testKeyScalarBytes := sha256.Sum256([]byte("It's a proprietary strategy. I can't go into it in great detail."))
+	testKeyScalar, err := secp256k1.NewScalarFromCanonicalBytes(&testKeyScalarBytes)
+	require.NoError(t, err, "NewScalarFromCanonicalBytes")
+	testKey, err := newPrivateKeyFromScalar(testKeyScalar)
+	require.NoError(t, err, "newPrivateKeyFromScalar")
+
 	t.Run("MitigateDebianAndSony/DomainSep", func(t *testing.T) {
 		// As we use the same nonce generation routine between ECDSA
 		// and Schnorr signatures, validate that domain separation
@@ -175,14 +198,8 @@ func testEcdsaK(t *testing.T) {
 		// Note: This is what the 'c' in 'cSHAKE' is for, so if this
 		// test ever fails, something is very badly fucked up.
 
-		testKeyScalarBytes := sha256.Sum256([]byte("It's a proprietary strategy. I can't go into it in great detail."))
-		testKeyScalar, err := secp256k1.NewScalarFromCanonicalBytes(&testKeyScalarBytes)
-		require.NoError(t, err, "NewScalarFromCanonicalBytes")
-		testKey, err := newPrivateKeyFromScalar(testKeyScalar)
-		require.NoError(t, err, "newPrivateKeyFromScalar")
-
 		genScalar := func(domainSep string) *secp256k1.Scalar {
-			rng, err := mitigateDebianAndSony(zeroReader{}, domainSep, testKey, msg1Hash)
+			rng, err := mitigateDebianAndSony(newZeroReader(), domainSep, testKey, msg1Hash)
 			require.NoError(t, err, "mitigateDebianAndSony(%s)", domainSep)
 
 			s, err := sampleRandomScalar(rng)
@@ -194,6 +211,19 @@ func testEcdsaK(t *testing.T) {
 		scalarSchnorr := genScalar(domainSepSchnorr) // Only thing that changes is the domain separator.
 
 		require.NotEqualValues(t, scalarEcdsa.Bytes(), scalarSchnorr.Bytes())
+	})
+	t.Run("MitigateDebianAndSony/BadRng", func(t *testing.T) {
+		rng, err := mitigateDebianAndSony(newBadReader(13), domainSepECDSA, testKey, msg1Hash)
+		require.Nil(t, rng, "mitigateDebianAndSony - badReader")
+		require.ErrorIs(t, err, errEntropySource, "mitigateDebianAndSony - badReader")
+
+		badSig, err := testKey.SignASN1(newBadReader(27), msg1Hash)
+		require.Nil(t, badSig, "SignASN1 - badReader")
+		require.ErrorIs(t, err, errEntropySource, "SignASN1 - badReader")
+
+		badSig, err = testKey.SignSchnorr(newBadReader(7), msg1Hash)
+		require.Nil(t, badSig, "SignSchnorr - badReader")
+		require.ErrorIs(t, err, errEntropySource, "SignSchnorr - badReader")
 	})
 }
 
@@ -211,4 +241,15 @@ func (zr zeroReader) Read(b []byte) (int, error) {
 		b[i] = 0
 	}
 	return len(b), nil
+}
+
+func newZeroReader() io.Reader {
+	return zeroReader{}
+}
+
+func newBadReader(n int64) io.Reader {
+	return &io.LimitedReader{
+		R: rand.Reader,
+		N: n,
+	}
 }

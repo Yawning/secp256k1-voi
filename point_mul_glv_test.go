@@ -20,7 +20,7 @@ func testScalarSplit(t *testing.T) {
 	for i, v := range []*Scalar{
 		NewScalar(),
 		scOne,
-		NewScalar().MustRandomize(),
+		NewScalar().DebugMustRandomizeNonZero(),
 
 		// Test cases from libsecp256k1
 		newScalarFromSaturated(0xd938a5667f479e3e, 0xb5b3c7faefdb3749, 0x3aa0585cc5ea2367, 0xe1b660db0209e6fc),
@@ -74,7 +74,7 @@ func testScalarSplit(t *testing.T) {
 			require.Zero(t, tmp2[2], "k2 limb 2 == 0")
 
 			// k * P = k1 * P + k2 * lambda * P
-			p := newRcvr().MustRandomize()
+			p := newRcvr().DebugMustRandomize()
 			kP := newRcvr().scalarMultTrivial(v, p)
 
 			var k1p, k2p *Point

@@ -79,6 +79,8 @@ func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 	}
 	var auxEntropy [schnorrEntropySize]byte
 	if _, err = io.ReadFull(fixedRng, auxEntropy[:]); err != nil {
+		// This is untestable as it requires failing to read from
+		// an initialized cSHAKE instance.
 		return nil, err
 	}
 
@@ -96,7 +98,7 @@ type SchnorrPublicKey struct {
 // Bytes returns a copy of the byte encoding of the public key.
 func (k *SchnorrPublicKey) Bytes() []byte {
 	if k.xBytes == nil {
-		panic("secp256k1/secec/schnorr: uninitialized public key")
+		panic(errAIsUninitialized)
 	}
 
 	var tmp [SchnorrPublicKeySize]byte
@@ -185,7 +187,7 @@ func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 func NewSchnorrPublicKeyFromPoint(point *secp256k1.Point) (*SchnorrPublicKey, error) {
 	pt := secp256k1.NewPointFrom(point)
 	if pt.IsIdentity() != 0 {
-		return nil, errors.New("secp256k1/secec/schnorr: public key is the point at infinity")
+		return nil, errAIsInfinity
 	}
 
 	// "Implicitly choosing the Y coordinate that is even"
@@ -224,6 +226,16 @@ func schnorrTaggedHash(tag string, vals ...[]byte) []byte {
 	return h.Sum(nil)
 }
 
+func (k *PrivateKey) valuesForSignSchnorr() ([]byte, *secp256k1.Scalar) {
+	// This step from the signing process is extracted out so that
+	// it can be used in tests.
+
+	pBytes, negateD := splitUncompressedPoint(k.PublicKey().Bytes())
+	d := secp256k1.NewScalarFrom(k.scalar)
+	d.ConditionalNegate(d, negateD)
+	return pBytes, d
+}
+
 func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) ([]byte, error) {
 	// The algorithm Sign(sk, m) is defined as:
 
@@ -238,9 +250,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) 
 
 	// Let d = d' if has_even_y(P), otherwise let d = n - d' .
 
-	pBytes, negateD := splitUncompressedPoint(sk.PublicKey().Bytes())
-	d := secp256k1.NewScalarFrom(sk.scalar)
-	d.ConditionalNegate(d, negateD)
+	pBytes, d := sk.valuesForSignSchnorr()
 
 	// Let t be the byte-wise xor of bytes(d) and hashBIP0340/aux(a)[11].
 
@@ -300,6 +310,8 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) 
 	// process is identical to the normal verify.
 
 	if !verifySchnorrSelf(d, sk.SchnorrPublicKey().Bytes(), msg[:], sig) {
+		// This is likely totally untestable, since it requires
+		// generating a signature that doesn't verify.
 		return nil, errors.New("secp256k1/secec/schnorr: failed to verify sig")
 	}
 

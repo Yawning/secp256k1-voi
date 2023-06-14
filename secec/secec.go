@@ -19,6 +19,11 @@ import (
 	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
 )
 
+var (
+	errAIsInfinity      = errors.New("secp256k1/secec: public key is the point at infinity")
+	errAIsUninitialized = errors.New("secp256k1/secec: uninitialized public key")
+)
+
 // PrivateKey is a secp256k1 private key.
 type PrivateKey struct {
 	_ disalloweq.DisallowEqual
@@ -85,7 +90,7 @@ type PublicKey struct {
 // Bytes returns a copy of the uncompressed encoding of the public key.
 func (k *PublicKey) Bytes() []byte {
 	if k.pointBytes == nil {
-		panic("secp256k1/secec: uninitialized public key")
+		panic(errAIsUninitialized)
 	}
 
 	var tmp [secp256k1.UncompressedPointSize]byte
@@ -189,7 +194,7 @@ func NewPublicKey(key []byte) (*PublicKey, error) {
 		return nil, fmt.Errorf("secp256k1/secec: invalid public key: %w", err)
 	}
 	if pt.IsIdentity() != 0 {
-		return nil, errors.New("secp256k1/secec: public key is the point at infinity")
+		return nil, errAIsInfinity
 	}
 
 	return &PublicKey{
@@ -203,7 +208,7 @@ func NewPublicKeyFromPoint(point *secp256k1.Point) (*PublicKey, error) {
 	// This duplicates code from NewPublicKey to avoid an extra copy.
 	pt := secp256k1.NewPointFrom(point)
 	if pt.IsIdentity() != 0 {
-		return nil, errors.New("secp256k1/secec: public key is the point at infinity")
+		return nil, errAIsInfinity
 	}
 
 	return &PublicKey{

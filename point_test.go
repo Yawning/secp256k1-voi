@@ -88,7 +88,7 @@ func testPointS11n(t *testing.T) {
 		require.Error(t, err, "Identity.XBytes()")
 	})
 	t.Run("Malformed/Compressed", func(t *testing.T) {
-		p := newRcvr().MustRandomize()
+		p := newRcvr().DebugMustRandomize()
 		pBytes := p.CompressedBytes()
 
 		p2, err := NewIdentityPoint().SetCompressedBytes(pBytes)
@@ -109,7 +109,7 @@ func testPointS11n(t *testing.T) {
 		require.Error(t, err, "SetCompressedBytes(badPrefix)")
 	})
 	t.Run("Malformed/Uncompressed", func(t *testing.T) {
-		p := newRcvr().MustRandomize()
+		p := newRcvr().DebugMustRandomize()
 		pBytes := p.UncompressedBytes()
 
 		p2, err := NewIdentityPoint().SetUncompressedBytes(pBytes)
@@ -133,7 +133,7 @@ func testPointS11n(t *testing.T) {
 
 func testPointAdd(t *testing.T) {
 	t.Run("a + 0", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
 		id := NewIdentityPoint()
 
 		aId := newRcvr().Add(a, id)
@@ -143,7 +143,7 @@ func testPointAdd(t *testing.T) {
 		requirePointEquals(t, a, idA, "0 + a = a")
 	})
 	t.Run("a + a", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
 
 		sum := newRcvr().Add(a, a)
 		product := newRcvr().Double(a)
@@ -151,8 +151,8 @@ func testPointAdd(t *testing.T) {
 		requirePointEquals(t, product, sum, "2 * a = a + a")
 	})
 	t.Run("a + b", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
-		b := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
+		b := newRcvr().DebugMustRandomize()
 
 		ab := newRcvr().Add(a, b)
 		ba := newRcvr().Add(b, a)
@@ -170,7 +170,7 @@ func testPointDouble(t *testing.T) {
 		requirePointEquals(t, id, product, "0 = 2 * 0")
 	})
 	t.Run("2 * a", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
 
 		product := newRcvr().Double(a)
 		sum := newRcvr().Add(a, a)
@@ -181,7 +181,7 @@ func testPointDouble(t *testing.T) {
 
 func testPointSubtract(t *testing.T) {
 	t.Run("a - 0", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
 		negA := newRcvr().Negate(a)
 		id := NewIdentityPoint()
 
@@ -192,15 +192,15 @@ func testPointSubtract(t *testing.T) {
 		requirePointEquals(t, negA, idA, "0 - a = -a")
 	})
 	t.Run("a - a", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
 
 		diff := newRcvr().Subtract(a, a)
 
 		requirePointEquals(t, NewIdentityPoint(), diff, "0 = a - a")
 	})
 	t.Run("a - b", func(t *testing.T) {
-		a := newRcvr().MustRandomize()
-		b := newRcvr().MustRandomize()
+		a := newRcvr().DebugMustRandomize()
+		b := newRcvr().DebugMustRandomize()
 		negB := newRcvr().Negate(b)
 
 		ab := newRcvr().Subtract(a, b)
@@ -259,11 +259,11 @@ func testPointScalarMult(t *testing.T) {
 	})
 	t.Run("Consistency", func(t *testing.T) {
 		var s Scalar
-		check := newRcvr().MustRandomize()
+		check := newRcvr().DebugMustRandomize()
 		p1 := NewPointFrom(check)
 		p2 := NewPointFrom(check)
 		for i := 0; i < randomTestIters; i++ {
-			s.MustRandomize()
+			s.DebugMustRandomizeNonZero()
 			check := check.scalarMultTrivial(&s, check)
 			p1.ScalarMult(&s, p1)
 			p2.scalarMultVartimeGLV(&s, p2)
@@ -271,8 +271,8 @@ func testPointScalarMult(t *testing.T) {
 			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: s * check (trivial) == s * p1 (ct)", i))
 			requirePointEquals(t, p1, p2, fmt.Sprintf("[%d]: s * p1 (ct) == s * p2 (vartime)", i))
 
-			p1.MustRandomizeZ()
-			p2.MustRandomizeZ()
+			p1.DebugMustRandomizeZ()
+			p2.DebugMustRandomizeZ()
 		}
 	})
 }
@@ -305,13 +305,13 @@ func testPointScalarBaseMult(t *testing.T) {
 		var s Scalar
 		check, p1, p2, p3, g := newRcvr(), newRcvr(), newRcvr(), newRcvr(), NewGeneratorPoint()
 		for i := 0; i < randomTestIters; i++ {
-			s.MustRandomize()
+			s.DebugMustRandomizeNonZero()
 			check.scalarMultTrivial(&s, g)
 			p1.ScalarBaseMult(&s)
 			p2.scalarBaseMultVartime(&s)
 			p3.ScalarMult(&s, g)
 
-			g.MustRandomizeZ()
+			g.DebugMustRandomizeZ()
 
 			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: s * G (trivial) != s * G (ct)", i))
 			requirePointEquals(t, p1, p2, fmt.Sprintf("[%d]: s * G (ct) != s * G (vartime)", i))
@@ -326,27 +326,27 @@ func testPointDoubleScalarMultBasepointVartime(t *testing.T) {
 		check, tmp, p, p1, g := newRcvr(), newRcvr(), newRcvr(), newRcvr(), NewGeneratorPoint()
 
 		for i := 0; i < randomTestIters; i++ {
-			u1.MustRandomize()
-			u2.MustRandomize()
-			p.MustRandomize()
+			u1.DebugMustRandomizeNonZero()
+			u2.DebugMustRandomizeNonZero()
+			p.DebugMustRandomize()
 
 			tmp.scalarMultTrivial(&u1, g)
 			check.scalarMultTrivial(&u2, p)
 			check.Add(tmp, check)
 
-			p.MustRandomizeZ()
+			p.DebugMustRandomizeZ()
 			p1.DoubleScalarMultBasepointVartime(&u1, &u2, p)
 
-			g.MustRandomizeZ()
+			g.DebugMustRandomizeZ()
 
 			requirePointEquals(t, check, p1, fmt.Sprintf("[%d]: u1 * G + u2 * P (trivial) != u1 * G + u2 * P (one-shot)", i))
 		}
 	})
 }
 
-func (v *Point) MustRandomize() *Point {
+func (v *Point) DebugMustRandomize() *Point {
 	for {
-		s := NewScalar().MustRandomize()
+		s := NewScalar().DebugMustRandomizeNonZero()
 		if s.IsZero() != 0 {
 			continue
 		}
@@ -354,17 +354,14 @@ func (v *Point) MustRandomize() *Point {
 	}
 }
 
-func (v *Point) MustRandomizeZ() *Point {
+func (v *Point) DebugMustRandomizeZ() *Point {
 	assertPointsValid(v)
 
 	if v.IsIdentity() != 0 {
 		return v
 	}
 	for {
-		rndFactor := field.NewElement().MustRandomize()
-		if rndFactor.IsZero() != 0 {
-			continue
-		}
+		rndFactor := field.NewElement().DebugMustRandomizeNonZero()
 
 		v.x.Multiply(&v.x, rndFactor)
 		v.y.Multiply(&v.y, rndFactor)
@@ -420,7 +417,7 @@ func BenchmarkPoint(b *testing.B) {
 	// Yes, this is a scalar op, but it's sole purpose is
 	// to make point multiplication faster.
 	b.Run("GLV/SplitScalar", func(b *testing.B) {
-		s := NewScalar().MustRandomize()
+		s := NewScalar().DebugMustRandomizeNonZero()
 		b.ReportAllocs()
 		b.ResetTimer()
 
@@ -446,7 +443,7 @@ func BenchmarkPoint(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			s.MustRandomize()
+			s.DebugMustRandomizeNonZero()
 			b.StartTimer()
 
 			q.scalarMultVartimeGLV(&s, q)
@@ -488,7 +485,7 @@ func BenchmarkPoint(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			s.MustRandomize()
+			s.DebugMustRandomizeNonZero()
 			b.StartTimer()
 
 			q.ScalarBaseMult(&s)
@@ -502,7 +499,7 @@ func BenchmarkPoint(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			s.MustRandomize()
+			s.DebugMustRandomizeNonZero()
 			b.StartTimer()
 
 			q.scalarBaseMultVartime(&s)
@@ -516,8 +513,8 @@ func BenchmarkPoint(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			s1.MustRandomize()
-			s2.MustRandomize()
+			s1.DebugMustRandomizeNonZero()
+			s2.DebugMustRandomizeNonZero()
 			b.StartTimer()
 
 			q.DoubleScalarMultBasepointVartime(&s1, &s2, q)

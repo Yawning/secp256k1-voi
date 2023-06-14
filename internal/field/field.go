@@ -26,7 +26,7 @@ var (
 		return m
 	}()
 
-	zeroElement Element
+	feZero Element
 )
 
 // Element is a field element.  All arguments and receivers are allowed
@@ -116,6 +116,16 @@ func (fe *Element) SetCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
 	return fe, nil
 }
 
+// MustSetCanonicalBytes sets `fe = src`, where `src` MUST be the 32-byte
+// big-endian canonical encoding of `fe`, and returns `fe`.  All errors
+// will panic.
+func (fe *Element) MustSetCanonicalBytes(src *[ElementSize]byte) *Element {
+	if _, err := fe.SetCanonicalBytes(src); err != nil {
+		panic(err)
+	}
+	return fe
+}
+
 // Bytes returns the canonical big-endian encoding of `fe`.
 func (fe *Element) Bytes() []byte {
 	// Blah blah blah outline blah escape analysis blah.
@@ -177,16 +187,20 @@ func (fe *Element) setSaturated(a *[4]uint64) bool {
 	return true
 }
 
-// MustRandomize randomizes and returns `fe`, or panics.
-func (fe *Element) MustRandomize() *Element {
+// DebugMustRandomizeNonZero randomizes and returns `fe`, or panics.
+func (fe *Element) DebugMustRandomizeNonZero() *Element {
 	var b [ElementSize]byte
 	for {
 		if _, err := rand.Read(b[:]); err != nil {
 			panic("internal/field: entropy source failure")
 		}
-		if _, err := fe.SetCanonicalBytes(&b); err == nil {
-			return fe
+		if _, err := fe.SetCanonicalBytes(&b); err != nil {
+			continue
 		}
+		if fe.IsZero() == 1 {
+			continue
+		}
+		return fe
 	}
 }
 

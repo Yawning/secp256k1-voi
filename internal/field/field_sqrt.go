@@ -14,7 +14,7 @@ func (fe *Element) Sqrt(a *Element) (*Element, uint64) {
 
 	// Check that a square root was actually calculated
 	isSqrt := NewElement().Square(tmp).Equal(a)
-	fe.ConditionalSelect(&zeroElement, tmp, isSqrt)
+	fe.ConditionalSelect(&feZero, tmp, isSqrt)
 
 	return fe, isSqrt
 }

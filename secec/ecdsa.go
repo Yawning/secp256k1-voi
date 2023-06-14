@@ -27,6 +27,9 @@ var (
 	errInvalidRorS   = errors.New("secp256k1.secec.ecdsa: r or s is zero")
 	errRIsInfinity   = errors.New("secp256k1/secec/ecdsa: R is the point at infinity")
 	errVNeqR         = errors.New("secp256k1/secec/ecdsa: v does not equal r")
+
+	errEntropySource     = errors.New("secp256k1/secec: entropy source failure")
+	errRejectionSampling = errors.New("secp256k1/secec: failed rejection sampling")
 )
 
 // Sign signs signs `hash` (which should be the result of hashing a
@@ -127,7 +130,7 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 	if R.IsIdentity() != 0 {
 		// This can NEVER happen as secp256k1.RecoverPoint always
 		// returns a point that is on the curve or an error.
-		return nil, errRIsInfinity
+		panic(errRIsInfinity)
 	}
 
 	// 1.5. Compute e from M using Steps 2 and 3 of ECDSA signature verification.
@@ -204,6 +207,10 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 
 		k, err := sampleRandomScalar(fixedRng)
 		if err != nil {
+			// This is essentially totally untestable, as:
+			// - This is astronomically unlikely to begin with.
+			// - `fixedRng` is cSHAKE, so it is hard to force it to
+			//   generate pathologically bad output.
 			return nil, nil, 0, fmt.Errorf("secp256k1/secec/ecdsa: failed to generate k: %w", err)
 		}
 		R := secp256k1.NewIdentityPoint().ScalarBaseMult(k)
@@ -219,6 +226,8 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 		var didReduce uint64
 		r, didReduce = secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(rXBytes))
 		if r.IsZero() != 0 {
+			// This is essentially totally untestable since the odds
+			// of generating `r = 0` is astronomically unlikely.
 			continue
 		}
 
@@ -382,7 +391,7 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, hBytes []b
 
 	var tmp [wantedEntropyBytes]byte
 	if _, err := io.ReadFull(rand, tmp[:]); err != nil {
-		return nil, fmt.Errorf("secp256k1: entropy source failure: %w", err)
+		return nil, errors.Join(errEntropySource, err)
 	}
 
 	xof := sha3.NewCShake256(nil, []byte("Honorary Debian/Sony RNG mitigation:"+ctx))
@@ -403,7 +412,7 @@ func sampleRandomScalar(rand io.Reader) (*secp256k1.Scalar, error) {
 	)
 	for i := 0; i < maxScalarResamples; i++ {
 		if _, err := io.ReadFull(rand, tmp[:]); err != nil {
-			return nil, fmt.Errorf("secp256k1/secec: entropy source failure: %w", err)
+			return nil, errors.Join(errEntropySource, err)
 		}
 
 		_, didReduce := s.SetBytes(&tmp)
@@ -412,5 +421,5 @@ func sampleRandomScalar(rand io.Reader) (*secp256k1.Scalar, error) {
 		}
 	}
 
-	return nil, errors.New("secp256k1/secec: failed rejection sampling")
+	return nil, errRejectionSampling
 }
