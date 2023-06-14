@@ -153,7 +153,8 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 	}
 
 	s, didReduce := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(key))
-	if didReduce != 0 || s.IsZero() != 0 {
+	isZero := s.IsZero()
+	if (didReduce | isZero) != 0 {
 		return nil, errors.New("secp256k1/secec: invalid private key")
 	}
 
