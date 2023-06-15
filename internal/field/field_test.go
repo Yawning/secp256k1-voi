@@ -24,7 +24,7 @@ func BenchmarkField(b *testing.B) {
 	})
 }
 
-func TestScalar(t *testing.T) {
+func TestElement(t *testing.T) {
 	geqP := [][]byte{
 		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"), // P
 		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc30"), // P+1
