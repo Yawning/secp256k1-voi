@@ -12,18 +12,15 @@ addchain search "2^256 - 2^32 - 977 - 2" > field_invert.acc
 addchain gen -tmpl field_invert.tmpl field_invert.acc > ../field/field_invert.go
 gofumpt -w ../field/field_invert.go
 
-# sec256k1 field square root
+# sec256k1 field sqrt_ratio
 #
-# CorrodedIronCrypto just lifts the code unattributed from libsecp256k1.
-# While that works, we might as well use addchain here as well.
-#
-# From WolframAlpha:
-# (p+1)/4 = ((2^256 - 2^32 - 977) + 1) / 4
-#         = 28948022309329048855892746252171976963317496166410141009864396001977208667916
-rm -f field_sqrt.acc ../field/field_sqrt.go
-addchain search "28948022309329048855892746252171976963317496166410141009864396001977208667916" > field_sqrt.acc
-addchain gen -tmpl field_sqrt.tmpl field_sqrt.acc > ../field/field_sqrt.go
-gofumpt -w ../field/field_sqrt.go
+# From sage:
+# (p-3)/4 = ((2^256 - 2^32 - 977) - 3) / 4
+#         = 28948022309329048855892746252171976963317496166410141009864396001977208667915
+rm -f field_pow_c1.acc ../field/field_pow_c1.acc
+addchain search "28948022309329048855892746252171976963317496166410141009864396001977208667915" > field_pow_c1.acc
+addchain gen -tmpl field_sqrt_ratio.tmpl field_pow_c1.acc > ../field/field_sqrt_ratio.go
+gofumpt -w ../field/field_sqrt_ratio.go
 
 # secp256k1 scalar inversion
 rm -f scalar_invert.acc

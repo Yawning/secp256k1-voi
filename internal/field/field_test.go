@@ -53,6 +53,11 @@ func TestElement(t *testing.T) {
 		fe2 := NewElement().MustSetCanonicalBytes((*[ElementSize]byte)(helpers.MustBytesFromHex(fe.String())))
 		require.EqualValues(t, fe, fe2, "fe.String should roundtrip")
 	})
+	t.Run("Constants/c2", func(t *testing.T) {
+		shouldBeNegZ := NewElement().Square(feC2)
+		negZ := NewElementFromSaturated(0, 0, 0, 11)
+		require.EqualValues(t, negZ, shouldBeNegZ, "c2 is sqrt(negZ)")
+	})
 
 	// Interal: "Why are you doing that" assertion tests.
 	require.Panics(t, func() {

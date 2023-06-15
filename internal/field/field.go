@@ -27,6 +27,7 @@ var (
 	}()
 
 	feZero Element
+	feOne  = NewElement().One()
 )
 
 // Element is a field element.  All arguments and receivers are allowed
