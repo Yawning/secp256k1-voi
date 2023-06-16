@@ -25,9 +25,6 @@ func Secp256k1_XMD_SHA256_SSWU_RO(domainSeparator, message []byte) (*secp256k1.P
 	// 1. u = hash_to_field(msg, 2)
 	var uBytes [hashToCurveSize]byte
 	if err := expandMessageXMD(uBytes[:], crypto.SHA256, domainSeparator, message); err != nil {
-		// This can NEVER happen as the only way for ExpandMessageXMD
-		// to fail is related to checks against parameters that are
-		// hardcoded (len(out), hash digest size).
 		return nil, err
 	}
 
@@ -52,9 +49,6 @@ func Secp256k1_XMD_SHA256_SSWU_NU(domainSeparator, message []byte) (*secp256k1.P
 	// 1. u = hash_to_field(msg, 1)
 	var uBytes [encodeToCurveSize]byte
 	if err := expandMessageXMD(uBytes[:], crypto.SHA256, domainSeparator, message); err != nil {
-		// This can NEVER happen as the only way for ExpandMessageXMD
-		// to fail is related to checks against parameters that are
-		// hardcoded (len(out), hash digest size).
 		return nil, err
 	}
 

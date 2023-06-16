@@ -59,7 +59,11 @@ func TestH2C(t *testing.T) {
 		err := expandMessageXMD(out[:], crypto.SHA1, dst, []byte("short hash"))
 		require.Error(t, err, "expandMessageXMD - SHA1")
 
-		// Our implementation rejects 0 length output, even if the draft does not.
+		// Our implementation rejects 0-length DSTs.
+		err = expandMessageXMD(out[:], crypto.SHA256, []byte{}, []byte("zero DST"))
+		require.Error(t, err, "expandMessageXMD - 0 length dst")
+
+		// Our implementation rejects 0-length output, even if the draft does not.
 		err = expandMessageXMD(out[:0], crypto.SHA256, dst, []byte("zero output"))
 		require.Error(t, err, "expandMessageXMD - 0 length output")
 
@@ -78,12 +82,12 @@ func TestH2C(t *testing.T) {
 
 	for _, suiteTest := range []h2cSuiteTestDef{
 		{
-			n:    "secp256k1_XMD:SHA-256_SSWU_RO_",
+			n:    "Suite/secp256k1_XMD:SHA-256_SSWU_RO_",
 			file: "testdata/secp256k1_XMD_SHA-256_SSWU_RO_.json",
 			fn:   Secp256k1_XMD_SHA256_SSWU_RO,
 		},
 		{
-			n:    "secp256k1_XMD:SHA-256_SSWU_NU_",
+			n:    "Suite/secp256k1_XMD:SHA-256_SSWU_NU_",
 			file: "testdata/secp256k1_XMD_SHA-256_SSWU_NU_.json",
 			fn:   Secp256k1_XMD_SHA256_SSWU_NU,
 		},
@@ -92,6 +96,22 @@ func TestH2C(t *testing.T) {
 			testSuiteH2c(t, &suiteTest)
 		})
 	}
+
+	t.Run("Suite/EdgeCases", func(t *testing.T) {
+		m := []byte("zero DST")
+
+		// The only way to force failures is to have a 0-length
+		// DST, since every other way expandMessageXMD can fail,
+		// will never happen due to hard-coded parameters.
+
+		p, err := Secp256k1_XMD_SHA256_SSWU_RO([]byte{}, m)
+		require.Nil(t, p, "RO - 0 length dst")
+		require.Error(t, err, "RO - 0 length dst")
+
+		p, err = Secp256k1_XMD_SHA256_SSWU_NU([]byte{}, m)
+		require.Nil(t, p, "NU - 0 length dst")
+		require.Error(t, err, "NU - 0 length dst")
+	})
 }
 
 type h2cSuiteTestVectors struct {
