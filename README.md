@@ -37,6 +37,7 @@ and scalars.
 - ECDSA per SEC 1, Version 2.0, Section 4.1.3/4.1.4 and BIP-0066.
 - ECDSA public key recovery per the various shitcoins.
 - Schnorr signatures per BIP-0340.
+- Hash to curve per draft-irtf-cfrg-hash-to-curve-16.
 
 #### Notes
 

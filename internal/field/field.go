@@ -16,8 +16,13 @@ import (
 	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
-// ElementSize is the size of a field element in bytes.
-const ElementSize = 32
+const (
+	// ElementSize is the size of a field element in bytes.
+	ElementSize = 32
+
+	// WideElementSize is the size of a wide field element in bytes.
+	WideElementSize = 64
+)
 
 var (
 	mSat = func() [5]uint64 {
@@ -103,6 +108,18 @@ func (fe *Element) Set(a *Element) *Element {
 	return fe
 }
 
+// SetBytes sets `fe = src`, where `src` is a 32-byte big-endian encoding
+// of `fe`, and returns `fe, 0`.  If `src` is not a canonical encoding of
+// `fe`, `src` is reduced modulo p, and SetBytes returns `fe, 1`.
+func (fe *Element) SetBytes(src *[ElementSize]byte) (*Element, uint64) {
+	l := helpers.BytesToSaturated(src)
+
+	didReduce := reduceSaturated(&l, &l)
+	fe.uncheckedSetSaturated(&l)
+
+	return fe, didReduce
+}
+
 // SetCanonicalBytes sets `fe = src`, where `src` is a 32-byte big-endian
 // encoding of `fe`, and returns `fe`.  If `src` is not a canonical
 // encoding of `fe`, SetCanonicalBytes returns nil and an error, and the
@@ -110,9 +127,10 @@ func (fe *Element) Set(a *Element) *Element {
 func (fe *Element) SetCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
 	l := helpers.BytesToSaturated(src)
 
-	if !fe.setSaturated(&l) {
+	if reduceSaturated(&l, &l) != 0 {
 		return nil, errors.New("internal/field: value out of range")
 	}
+	fe.uncheckedSetSaturated(&l)
 
 	return fe, nil
 }
@@ -144,6 +162,14 @@ func (fe *Element) getBytes(dst *[ElementSize]byte) []byte {
 	binary.BigEndian.PutUint64(dst[24:], nm[0])
 
 	return dst[:]
+}
+
+// ConditionalNegate sets `fe = a` iff `ctrl == 0`, `fe = -a` otherwise,
+// and returns `fe`.
+func (fe *Element) ConditionalNegate(a *Element, ctrl uint64) *Element {
+	feNeg := NewElement().Negate(a)
+
+	return fe.ConditionalSelect(a, feNeg, ctrl)
 }
 
 // ConditionalSelect sets `fe = a` iff `ctrl == 0`, `fe = b` otherwise,
@@ -180,12 +206,9 @@ func (fe *Element) String() string {
 	return hex.EncodeToString(fe.Bytes())
 }
 
-func (fe *Element) setSaturated(a *[4]uint64) bool {
-	if !saturatedInRange(a) {
-		return false
-	}
+func (fe *Element) uncheckedSetSaturated(a *[4]uint64) *Element {
 	fiat.ToMontgomery(&fe.m, (*fiat.NonMontgomeryDomainFieldElement)(a))
-	return true
+	return fe
 }
 
 // DebugMustRandomizeNonZero randomizes and returns `fe`, or panics.
@@ -227,12 +250,11 @@ func NewElementFromSaturated(l3, l2, l1, l0 uint64) *Element {
 
 	// Yes, this panics if you fuck up.  Why are you using this for
 	// anything but pre-computed constants?
-	var fe Element
-	if !fe.setSaturated(&l) {
+	if reduceSaturated(&l, &l) != 0 {
 		panic("internal/field: saturated limbs out of range")
 	}
 
-	return &fe
+	return NewElement().uncheckedSetSaturated(&l)
 }
 
 // NewElementFromCanonicalBytes creates a new Element from the canonical
@@ -250,24 +272,5 @@ func NewElementFromCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
 // encoded field element in big-endian byte order.
 func BytesAreCanonical(src *[ElementSize]byte) bool {
 	l := helpers.BytesToSaturated(src)
-	return saturatedInRange(&l)
-}
-
-func saturatedInRange(a *[4]uint64) bool {
-	// XXX: Maybe this should do this "more correctly" and return
-	// a uint64.  But AFAIK the only use of this routine is going
-	// to be to return an error or to immediately panic.
-	//
-	// See the logic in the scalar `reduceSaturated` routine for
-	// an example of "more correctly".
-	var ok bool
-	for i := 3; i >= 0; i-- {
-		// For this specific value of `m`, the `src` limb can't be
-		// greater than the corresponding `m` limb unless it is
-		// the least-significant limb, so there is no need to
-		// explicitly check for the "greater-than" or "equal" cases.
-		ok = ok || a[i] < mSat[i]
-	}
-
-	return ok
+	return reduceSaturated(&l, &l) == 0
 }

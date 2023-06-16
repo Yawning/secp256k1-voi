@@ -5,6 +5,7 @@
 package field
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,19 @@ func TestElement(t *testing.T) {
 		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc31"), // P+2
 		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc2f"), // P+2^32
 	}
+	geqPReduced := []*Element{
+		NewElementFromSaturated(0, 0, 0, 0),
+		NewElementFromSaturated(0, 0, 0, 1),
+		NewElementFromSaturated(0, 0, 0, 2),
+		NewElementFromSaturated(0, 0, 0, 0x100000000),
+	}
+	t.Run("SetBytes", func(t *testing.T) {
+		for i, raw := range geqP {
+			fe, didReduce := NewElement().SetBytes((*[ElementSize]byte)(raw))
+			require.EqualValues(t, 1, didReduce, "[%d]: didReduce SetBytes(largerThanP)", i)
+			require.EqualValues(t, 1, geqPReduced[i].Equal(fe), "[%d]: SetBytes(largerThanP)", i)
+		}
+	})
 	t.Run("SetCanonicalBytes", func(t *testing.T) {
 		for i, raw := range geqP {
 			fe, err := NewElement().SetCanonicalBytes((*[ElementSize]byte)(raw))
@@ -47,6 +61,26 @@ func TestElement(t *testing.T) {
 			)
 		}
 	})
+	t.Run("SetWideBytes", func(t *testing.T) {
+		huge := bytes.Repeat([]byte{0xff}, 64)                                // 2^512-1
+		hugeReduced := NewElementFromSaturated(0, 0, 0x1, 0x000007a2000e90a0) // From sage
+		fe := NewElement().SetWideBytes(huge)
+		require.EqualValues(t, 1, hugeReduced.Equal(fe), "SetWideBytes(huge)")
+
+		for i, raw := range geqP {
+			fe.SetWideBytes(raw)
+			require.EqualValues(t, 1, geqPReduced[i].Equal(fe), "[%d]: SetWideBytes(largerThanP)", i)
+		}
+
+		require.Panics(t, func() {
+			NewElement().SetWideBytes([]byte("not all that wide"))
+		})
+		require.Panics(t, func() {
+			tooHuge := append([]byte{0xff}, huge...)
+			NewElement().SetWideBytes(tooHuge)
+		})
+	})
+
 	t.Run("String", func(t *testing.T) {
 		// This is only exposed because it was useful for debugging.
 		fe := NewElement().DebugMustRandomizeNonZero()

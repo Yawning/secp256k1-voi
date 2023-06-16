@@ -40,7 +40,7 @@ func TestScalar(t *testing.T) {
 		for i, raw := range geqN {
 			s, didReduce := NewScalar().SetBytes((*[ScalarSize]byte)(raw))
 			require.EqualValues(t, 1, didReduce, "[%d]: didReduce SetBytes(largerThanN)", i)
-			require.EqualValues(t, 1, geqNReduced[i].Equal(s), "[%d]: didReduce SetBytes(largerThanN)", i)
+			require.EqualValues(t, 1, geqNReduced[i].Equal(s), "[%d]: SetBytes(largerThanN)", i)
 		}
 	})
 	t.Run("SetCanonicalBytes", func(t *testing.T) {

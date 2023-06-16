@@ -103,10 +103,8 @@ func (v *Point) Negate(p *Point) *Point {
 func (v *Point) ConditionalNegate(p *Point, ctrl uint64) *Point {
 	assertPointsValid(p)
 
-	negPy := field.NewElement().Negate(&p.y)
-
 	v.x.Set(&p.x)
-	v.y.ConditionalSelect(&p.y, negPy, ctrl)
+	v.y.ConditionalNegate(&p.y, ctrl)
 	v.z.Set(&p.z)
 
 	v.isValid = p.isValid
