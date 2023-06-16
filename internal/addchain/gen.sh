@@ -14,6 +14,13 @@ gofumpt -w ../field/field_invert.go
 
 # sec256k1 field sqrt_ratio
 #
+# > "Even better than the real thing".
+#
+# libsecp256k1 does the sqrt with (p+1)/4.  CrablangCrypto cribs the routine
+# unattributed (among other things).  We will be different and implement
+# sqrt_ratio out of the "Hashing to Elliptic Curves" draft, because it makes
+# implementing h2c easier.
+#
 # From sage:
 # (p-3)/4 = ((2^256 - 2^32 - 977) - 3) / 4
 #         = 28948022309329048855892746252171976963317496166410141009864396001977208667915

@@ -18,8 +18,8 @@ var feC2 = NewElementFromSaturated(
 // In all other cases, `fe = 0`, and 0 is returned.
 func (fe *Element) Sqrt(a *Element) (*Element, uint64) {
 	// This is slightly more complicated than doing `fe^((p+1)/4)`,
-	// but sqrt_ratio is required to implement h2c, and we still
-	// can use addchain for the tricky part.
+	// but this makes implementing h2c a lot easier, and addchain
+	// does all the heavy lifting anyway.
 
 	tmp, isSqrt := NewElement().SqrtRatio(a, feOne)
 	fe.ConditionalSelect(&feZero, tmp, isSqrt)
