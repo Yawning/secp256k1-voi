@@ -50,10 +50,10 @@ const (
 
 var (
 	// feB is the constant `b`, part of the curve equation.
-	feB = field.NewElementFromSaturated(0, 0, 0, 7)
+	feB = field.NewElementFromUint64(7)
 
 	// feN is the constant `n`, part of the curve parameters.
-	feN = field.NewElementFromSaturated(nSat[3], nSat[2], nSat[1], nSat[0])
+	feN = field.NewElement().MustSetCanonicalBytes((*[field.ElementSize]byte)(nBytes))
 
 	errPointNotOnCurve = errors.New("secp256k1: point not on curve")
 )

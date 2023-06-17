@@ -26,17 +26,18 @@ func BenchmarkField(b *testing.B) {
 }
 
 func TestElement(t *testing.T) {
+	pPlusOneStr := "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc30"
 	geqP := [][]byte{
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"), // P
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc30"), // P+1
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc31"), // P+2
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc2f"), // P+2^32
+		helpers.MustBytesFromHex("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"), // P
+		helpers.MustBytesFromHex(pPlusOneStr), // P+1
+		helpers.MustBytesFromHex("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc31"), // P+2
+		helpers.MustBytesFromHex("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc2f"), // P+2^32
 	}
 	geqPReduced := []*Element{
-		NewElementFromSaturated(0, 0, 0, 0),
-		NewElementFromSaturated(0, 0, 0, 1),
-		NewElementFromSaturated(0, 0, 0, 2),
-		NewElementFromSaturated(0, 0, 0, 0x100000000),
+		NewElementFromUint64(0),
+		NewElementFromUint64(1),
+		NewElementFromUint64(2),
+		NewElementFromUint64(0x100000000),
 	}
 	t.Run("SetBytes", func(t *testing.T) {
 		for i, raw := range geqP {
@@ -62,8 +63,8 @@ func TestElement(t *testing.T) {
 		}
 	})
 	t.Run("SetWideBytes", func(t *testing.T) {
-		huge := bytes.Repeat([]byte{0xff}, 64)                                // 2^512-1
-		hugeReduced := NewElementFromSaturated(0, 0, 0x1, 0x000007a2000e90a0) // From sage
+		huge := bytes.Repeat([]byte{0xff}, 64)                           // 2^512-1
+		hugeReduced := NewElementFromCanonicalHex("0x1000007a2000e90a0") // From sage
 		fe := NewElement().SetWideBytes(huge)
 		require.EqualValues(t, 1, hugeReduced.Equal(fe), "SetWideBytes(huge)")
 
@@ -89,16 +90,23 @@ func TestElement(t *testing.T) {
 	})
 	t.Run("Constants/c2", func(t *testing.T) {
 		shouldBeNegZ := NewElement().Square(feC2)
-		negZ := NewElementFromSaturated(0, 0, 0, 11)
+		negZ := NewElementFromUint64(11)
 		require.EqualValues(t, negZ, shouldBeNegZ, "c2 is sqrt(negZ)")
+	})
+	t.Run("Invert/zero", func(t *testing.T) {
+		// Check that the exceptional case `1/0` returns `0`.
+		//
+		// The current method guarantees this property, but other
+		// things (eg: h2c) absolutely rely on it, so make sure we
+		// don't inadvertently break it.
+		shouldBeZero := NewElement().Invert(&feZero)
+		require.EqualValues(t, 1, shouldBeZero.IsZero(), "Invert(0) is 0")
 	})
 
 	// Interal: "Why are you doing that" assertion tests.
+	require.Panics(t, func() { NewElementFromCanonicalHex(pPlusOneStr) })
 	require.Panics(t, func() {
-		NewElementFromSaturated(0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff)
-	})
-	require.Panics(t, func() {
-		fe := NewElementFromSaturated(69, 69, 69, 69)
+		fe := NewElementFromUint64(69)
 		fe.Pow2k(fe, 0)
 	})
 }

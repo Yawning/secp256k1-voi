@@ -18,7 +18,7 @@ import "gitlab.com/yawning/secp256k1-voi/internal/field"
 // - https://hyperelliptic.org/EFD/g1p/auto-shortw-projective.html
 
 // feB3 is the constant `b * 3`, used in the point addition algorithm.
-var feB3 = field.NewElementFromSaturated(0, 0, 0, 7*3)
+var feB3 = field.NewElementFromUint64(7 * 3)
 
 // addComplete sets `v = p + q`, and returns `v`.
 func (v *Point) addComplete(p, q *Point) *Point {

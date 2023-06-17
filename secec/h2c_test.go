@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -130,8 +129,8 @@ type h2cSuiteTestPoint struct {
 }
 
 func (pt *h2cSuiteTestPoint) ToPoint(t *testing.T) (*secp256k1.Point, error) {
-	x := helpers.MustBytesFromHex(trimOhEcks(pt.X))
-	y := helpers.MustBytesFromHex(trimOhEcks(pt.Y))
+	x := helpers.MustBytesFromHex(pt.X)
+	y := helpers.MustBytesFromHex(pt.Y)
 
 	return secp256k1.NewPointFromCoords((*[secp256k1.CoordSize]byte)(x), (*[secp256k1.CoordSize]byte)(y))
 }
@@ -190,8 +189,4 @@ func testExpandMessage(t *testing.T, def *h2cExpandTestDef) {
 			require.Equal(t, expectedU, out, "ExpandMessageXMD(out, h, dst, msg)")
 		})
 	}
-}
-
-func trimOhEcks(s string) string {
-	return strings.TrimPrefix(s, "0x")
 }

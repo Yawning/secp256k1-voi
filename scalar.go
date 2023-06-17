@@ -5,7 +5,6 @@
 package secp256k1
 
 import (
-	"encoding/binary"
 	"errors"
 	"math/bits"
 
@@ -22,6 +21,11 @@ var (
 		var n [5]uint64
 		fiat.Msat(&n)
 		return n
+	}()
+
+	nBytes = func() []byte {
+		var dst [ScalarSize]byte
+		return helpers.PutSaturatedToBytes(&dst, (*[4]uint64)(nSat[:4]))
 	}()
 
 	// nSat >> 1
@@ -128,13 +132,7 @@ func (s *Scalar) Bytes() []byte {
 func (s *Scalar) getBytes(dst *[ScalarSize]byte) []byte {
 	var nm fiat.NonMontgomeryDomainFieldElement
 	fiat.FromMontgomery(&nm, &s.m)
-
-	binary.BigEndian.PutUint64(dst[0:], nm[3])
-	binary.BigEndian.PutUint64(dst[8:], nm[2])
-	binary.BigEndian.PutUint64(dst[16:], nm[1])
-	binary.BigEndian.PutUint64(dst[24:], nm[0])
-
-	return dst[:]
+	return helpers.PutSaturatedToBytes(dst, (*[4]uint64)(&nm))
 }
 
 // ConditionalNegate sets `s = a` iff `ctrl == 0`, `s = -a` otherwise,
@@ -216,6 +214,11 @@ func NewScalarFrom(other *Scalar) *Scalar {
 	return NewScalar().Set(other)
 }
 
+// NewScalarFromUint64 creates a new Scalar from a uint64.
+func NewScalarFromUint64(l0 uint64) *Scalar {
+	return NewScalar().uncheckedSetSaturated(&[4]uint64{l0, 0, 0, 0})
+}
+
 // NewScalarFromCanonicalBytes creates a new Scalar from the canonical
 // big-endian byte representation.
 func NewScalarFromCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
@@ -227,22 +230,13 @@ func NewScalarFromCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
 	return s, nil
 }
 
-func newScalarFromSaturated(l3, l2, l1, l0 uint64) *Scalar {
-	// Since the NonMontgomeryDomainFieldElement is fully-saturated
-	// this is trivial.
-	var l [4]uint64
-	l[0] = l0
-	l[1] = l1
-	l[2] = l2
-	l[3] = l3
-
-	// Yes, this panics if you fuck up.  Why are you using this for
-	// anything but pre-computed constants?
-	if reduceSaturated(&l, &l) != 0 {
-		panic("secp256k1: saturated scalar out of range")
+func newScalarFromCanonicalHex(str string) *Scalar {
+	s, err := NewScalarFromCanonicalBytes(helpers.Must256BitsFromHex(str))
+	if err != nil {
+		panic(err)
 	}
 
-	return NewScalar().uncheckedSetSaturated(&l)
+	return s
 }
 
 func reduceSaturated(dst, src *[4]uint64) uint64 {

@@ -14,124 +14,54 @@ import (
 var (
 	// Z = -11
 	feZ = func() *field.Element {
-		negZ := field.NewElementFromSaturated(0, 0, 0, 11)
+		negZ := field.NewElementFromUint64(11)
 		return negZ.Negate(negZ)
 	}()
 
 	// A' = 0x3f8731abdd661adca08a5558f0f5d272e953d363cb6f0e5d405447c01a444533
-	feA = field.NewElementFromSaturated(
-		0x3f8731abdd661adc,
-		0xa08a5558f0f5d272,
-		0xe953d363cb6f0e5d,
-		0x405447c01a444533,
-	)
+	feA = field.NewElementFromCanonicalHex("0x3f8731abdd661adca08a5558f0f5d272e953d363cb6f0e5d405447c01a444533")
 
 	// B' = 1771
-	feB = field.NewElementFromSaturated(0, 0, 0, 1771)
+	feB = field.NewElementFromUint64(1771)
 
 	// k_(1,0) = 0x8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa8c7
-	feK10 = field.NewElementFromSaturated(
-		0x8e38e38e38e38e38,
-		0xe38e38e38e38e38e,
-		0x38e38e38e38e38e3,
-		0x8e38e38daaaaa8c7,
-	)
+	feK10 = field.NewElementFromCanonicalHex("0x8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa8c7")
 
 	// k_(1,1) = 0x7d3d4c80bc321d5b9f315cea7fd44c5d595d2fc0bf63b92dfff1044f17c6581
-	feK11 = field.NewElementFromSaturated(
-		0x7d3d4c80bc321d5,
-		0xb9f315cea7fd44c5,
-		0xd595d2fc0bf63b92,
-		0xdfff1044f17c6581,
-	)
+	feK11 = field.NewElementFromCanonicalHex("0x7d3d4c80bc321d5b9f315cea7fd44c5d595d2fc0bf63b92dfff1044f17c6581")
 
 	// k_(1,2) = 0x534c328d23f234e6e2a413deca25caece4506144037c40314ecbd0b53d9dd262
-	feK12 = field.NewElementFromSaturated(
-		0x534c328d23f234e6,
-		0xe2a413deca25caec,
-		0xe4506144037c4031,
-		0x4ecbd0b53d9dd262,
-	)
+	feK12 = field.NewElementFromCanonicalHex("0x534c328d23f234e6e2a413deca25caece4506144037c40314ecbd0b53d9dd262")
 
 	// k_(1,3) = 0x8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa88c
-	feK13 = field.NewElementFromSaturated(
-		0x8e38e38e38e38e38,
-		0xe38e38e38e38e38e,
-		0x38e38e38e38e38e3,
-		0x8e38e38daaaaa88c,
-	)
+	feK13 = field.NewElementFromCanonicalHex("0x8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa88c")
 
 	// k_(2,0) = 0xd35771193d94918a9ca34ccbb7b640dd86cd409542f8487d9fe6b745781eb49b
-	feK20 = field.NewElementFromSaturated(
-		0xd35771193d94918a,
-		0x9ca34ccbb7b640dd,
-		0x86cd409542f8487d,
-		0x9fe6b745781eb49b,
-	)
+	feK20 = field.NewElementFromCanonicalHex("0xd35771193d94918a9ca34ccbb7b640dd86cd409542f8487d9fe6b745781eb49b")
 
 	// k_(2,1) = 0xedadc6f64383dc1df7c4b2d51b54225406d36b641f5e41bbc52a56612a8c6d14
-	feK21 = field.NewElementFromSaturated(
-		0xedadc6f64383dc1d,
-		0xf7c4b2d51b542254,
-		0x06d36b641f5e41bb,
-		0xc52a56612a8c6d14,
-	)
+	feK21 = field.NewElementFromCanonicalHex("0xedadc6f64383dc1df7c4b2d51b54225406d36b641f5e41bbc52a56612a8c6d14")
 
 	// k_(3,0) = 0x4bda12f684bda12f684bda12f684bda12f684bda12f684bda12f684b8e38e23c
-	feK30 = field.NewElementFromSaturated(
-		0x4bda12f684bda12f,
-		0x684bda12f684bda1,
-		0x2f684bda12f684bd,
-		0xa12f684b8e38e23c,
-	)
+	feK30 = field.NewElementFromCanonicalHex("0x4bda12f684bda12f684bda12f684bda12f684bda12f684bda12f684b8e38e23c")
 
 	// k_(3,1) = 0xc75e0c32d5cb7c0fa9d0a54b12a0a6d5647ab046d686da6fdffc90fc201d71a3
-	feK31 = field.NewElementFromSaturated(
-		0xc75e0c32d5cb7c0f,
-		0xa9d0a54b12a0a6d5,
-		0x647ab046d686da6f,
-		0xdffc90fc201d71a3,
-	)
+	feK31 = field.NewElementFromCanonicalHex("0xc75e0c32d5cb7c0fa9d0a54b12a0a6d5647ab046d686da6fdffc90fc201d71a3")
 
 	// k_(3,2) = 0x29a6194691f91a73715209ef6512e576722830a201be2018a765e85a9ecee931
-	feK32 = field.NewElementFromSaturated(
-		0x29a6194691f91a73,
-		0x715209ef6512e576,
-		0x722830a201be2018,
-		0xa765e85a9ecee931,
-	)
+	feK32 = field.NewElementFromCanonicalHex("0x29a6194691f91a73715209ef6512e576722830a201be2018a765e85a9ecee931")
 
 	// k_(3,3) = 0x2f684bda12f684bda12f684bda12f684bda12f684bda12f684bda12f38e38d84
-	feK33 = field.NewElementFromSaturated(
-		0x2f684bda12f684bd,
-		0xa12f684bda12f684,
-		0xbda12f684bda12f6,
-		0x84bda12f38e38d84,
-	)
+	feK33 = field.NewElementFromCanonicalHex("0x2f684bda12f684bda12f684bda12f684bda12f684bda12f684bda12f38e38d84")
 
 	// k_(4,0) = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffff93b
-	feK40 = field.NewElementFromSaturated(
-		0xffffffffffffffff,
-		0xffffffffffffffff,
-		0xffffffffffffffff,
-		0xfffffffefffff93b,
-	)
+	feK40 = field.NewElementFromCanonicalHex("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffff93b")
 
 	// k_(4,1) = 0x7a06534bb8bdb49fd5e9e6632722c2989467c1bfc8e8d978dfb425d2685c2573
-	feK41 = field.NewElementFromSaturated(
-		0x7a06534bb8bdb49f,
-		0xd5e9e6632722c298,
-		0x9467c1bfc8e8d978,
-		0xdfb425d2685c2573,
-	)
+	feK41 = field.NewElementFromCanonicalHex("0x7a06534bb8bdb49fd5e9e6632722c2989467c1bfc8e8d978dfb425d2685c2573")
 
 	// k_(4,2) = 0x6484aa716545ca2cf3a70c3fa8fe337e0a3d21162f0d6299a7bf8192bfd2a76f
-	feK42 = field.NewElementFromSaturated(
-		0x6484aa716545ca2c,
-		0xf3a70c3fa8fe337e,
-		0x0a3d21162f0d6299,
-		0xa7bf8192bfd2a76f,
-	)
+	feK42 = field.NewElementFromCanonicalHex("0x6484aa716545ca2cf3a70c3fa8fe337e0a3d21162f0d6299a7bf8192bfd2a76f")
 
 	feOne = field.NewElement().One()
 )

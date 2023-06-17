@@ -7,7 +7,6 @@ package field
 
 import (
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 
@@ -155,13 +154,7 @@ func (fe *Element) Bytes() []byte {
 func (fe *Element) getBytes(dst *[ElementSize]byte) []byte {
 	var nm fiat.NonMontgomeryDomainFieldElement
 	fiat.FromMontgomery(&nm, &fe.m)
-
-	binary.BigEndian.PutUint64(dst[0:], nm[3])
-	binary.BigEndian.PutUint64(dst[8:], nm[2])
-	binary.BigEndian.PutUint64(dst[16:], nm[1])
-	binary.BigEndian.PutUint64(dst[24:], nm[0])
-
-	return dst[:]
+	return helpers.PutSaturatedToBytes(dst, (*[4]uint64)(&nm))
 }
 
 // ConditionalNegate sets `fe = a` iff `ctrl == 0`, `fe = -a` otherwise,
@@ -238,34 +231,32 @@ func NewElementFrom(other *Element) *Element {
 	return NewElement().Set(other)
 }
 
-// NewElementFromSaturated creates a new Element from the raw saturated representation.
-func NewElementFromSaturated(l3, l2, l1, l0 uint64) *Element {
-	// Since the NonMontgomeryDomainFieldElement is fully-saturated
-	// this is trivial.
-	var l [4]uint64
-	l[0] = l0
-	l[1] = l1
-	l[2] = l2
-	l[3] = l3
-
-	// Yes, this panics if you fuck up.  Why are you using this for
-	// anything but pre-computed constants?
-	if reduceSaturated(&l, &l) != 0 {
-		panic("internal/field: saturated limbs out of range")
-	}
-
-	return NewElement().uncheckedSetSaturated(&l)
+// NewElementFromUint64 creates a new Element from a uint64.
+func NewElementFromUint64(l0 uint64) *Element {
+	return NewElement().uncheckedSetSaturated(&[4]uint64{l0, 0, 0, 0})
 }
 
 // NewElementFromCanonicalBytes creates a new Element from the canonical
 // big-endian byte representation.
 func NewElementFromCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
-	e, err := NewElement().SetCanonicalBytes(src)
+	fe, err := NewElement().SetCanonicalBytes(src)
 	if err != nil {
 		return nil, err
 	}
 
-	return e, nil
+	return fe, nil
+}
+
+// NewElementFromCanonicalHex creates a new Element from the canonical hex
+// big-endian byte representation.  The hex string MUST be less than or
+// equal to `2*ElementSize`.
+func NewElementFromCanonicalHex(str string) *Element {
+	fe, err := NewElementFromCanonicalBytes(helpers.Must256BitsFromHex(str))
+	if err != nil {
+		panic(err)
+	}
+
+	return fe
 }
 
 // BytesAreCanonical returns true iff `src` represents a canonically

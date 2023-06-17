@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"math/bits"
+	"strings"
 )
 
 // Uint64IsZero returns 1 iff `u == 0`, 0 otherwise, in constant time.
@@ -52,12 +53,49 @@ func BytesToSaturated(src *[32]byte) [4]uint64 {
 	return dst
 }
 
+// PutSaturatedToBytes fills dst with the 256-big big-endian byte
+// encoding of src, where src is the fiat-compatible 64-bit sautrated
+// representation, and returns dst.
+func PutSaturatedToBytes(dst *[32]byte, src *[4]uint64) []byte {
+	binary.BigEndian.PutUint64(dst[0:8], src[3])
+	binary.BigEndian.PutUint64(dst[8:16], src[2])
+	binary.BigEndian.PutUint64(dst[16:24], src[1])
+	binary.BigEndian.PutUint64(dst[24:32], src[0])
+	return dst[:]
+}
+
 // MustBytesFromHex interprets src as a hex encoded byte-slice, and
-// returns the byte representation, or panics.
+// returns the byte representation, or panics.  `src` MAY be prefixed
+// with `0x`.
 func MustBytesFromHex(src string) []byte {
+	src = TrimOhEcks(src)
+
 	b, err := hex.DecodeString(src)
 	if err != nil {
 		panic("internal/helpers: invalid hex string: " + err.Error())
 	}
 	return b
+}
+
+// Must256BitsFromHex interprets src as a hex encoded big-endian integer
+// that is less than 2^256, or panics.  `src` MUST be less than or
+// equal to 64-bytes in length after the optional "0x" prefix is removed.
+func Must256BitsFromHex(src string) *[32]byte {
+	src = TrimOhEcks(src)
+
+	padSz := 32*2 - len(src)
+	switch {
+	case padSz > 0:
+		src = strings.Repeat("0", padSz) + src
+	case padSz < 0:
+		panic("internal/helpers: over sized hex string")
+	}
+	b := MustBytesFromHex(src)
+
+	return (*[32]byte)(b)
+}
+
+// TrimOhEcks trims the "0x" hex prefix if present.
+func TrimOhEcks(s string) string {
+	return strings.TrimPrefix(s, "0x")
 }

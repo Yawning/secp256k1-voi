@@ -23,18 +23,20 @@ func (s *Scalar) String() string {
 }
 
 func TestScalar(t *testing.T) {
+	nStr := "0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141" // N
+
 	// N = fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
 	geqN := [][]byte{
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"), // N
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142"), // N+1
-		helpers.MustBytesFromHex("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364143"), // N+2
-		helpers.MustBytesFromHex("ffffffffffffffffffffffffffffffffbaaedce6af48a03bbfd25e8cd0364141"), // N+2^128
+		helpers.MustBytesFromHex(nStr), // N
+		helpers.MustBytesFromHex("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142"), // N+1
+		helpers.MustBytesFromHex("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364143"), // N+2
+		helpers.MustBytesFromHex("0xffffffffffffffffffffffffffffffffbaaedce6af48a03bbfd25e8cd0364141"), // N+2^128
 	}
 	geqNReduced := []*Scalar{
-		newScalarFromSaturated(0, 0, 0, 0),
-		newScalarFromSaturated(0, 0, 0, 1),
-		newScalarFromSaturated(0, 0, 0, 2),
-		newScalarFromSaturated(0, 1, 0, 0),
+		NewScalarFromUint64(0),
+		NewScalarFromUint64(1),
+		NewScalarFromUint64(2),
+		newScalarFromCanonicalHex("0x100000000000000000000000000000000"),
 	}
 	t.Run("SetBytes", func(t *testing.T) {
 		for i, raw := range geqN {
@@ -54,8 +56,8 @@ func TestScalar(t *testing.T) {
 	t.Run("IsGreaterThanHalfN", func(t *testing.T) {
 		// N/2 = 7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0
 		leqHalfN := []*Scalar{
-			newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0x5d576e7357a4501d, 0xdfe92f46681b20a0), // N/2
-			newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0x5d576e7357a4501d, 0xdfe92f46681b209f), // N/2-1
+			newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0"), // N/2
+			newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b209f"), // N/2-1
 		}
 		for i, s := range leqHalfN {
 			isGt := s.IsGreaterThanHalfN()
@@ -63,8 +65,8 @@ func TestScalar(t *testing.T) {
 		}
 
 		gtHalfN := []*Scalar{
-			newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0x5d576e7357a4501d, 0xdfe92f46681b20a1), // N/2+1
-			newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0x5d576e7357a4501d, 0xdfe92f46681b20a2), // N/2+2
+			newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1"), // N/2+1
+			newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a2"), // N/2+2
 		}
 		for i, s := range gtHalfN {
 			isGt := s.IsGreaterThanHalfN()
@@ -81,11 +83,9 @@ func TestScalar(t *testing.T) {
 	})
 
 	// Interal: "Why are you doing that" assertion tests.
+	require.Panics(t, func() { newScalarFromCanonicalHex(nStr) })
 	require.Panics(t, func() {
-		newScalarFromSaturated(0xffffffffffffffff, 0xfffffffffffffffe, 0xbaaedce6af48a03b, 0xbfd25e8cd0364141)
-	})
-	require.Panics(t, func() {
-		s := newScalarFromSaturated(69, 69, 69, 69)
+		s := NewScalarFromUint64(69)
 		s.pow2k(s, 0)
 	})
 }

@@ -72,7 +72,7 @@ func testPointS11n(t *testing.T) {
 		require.Error(t, err, "SetBytes(69)")
 	})
 	t.Run("NewPointFromCoords", func(t *testing.T) {
-		p, err := NewPointFromCoords((*[CoordSize]byte)(gX.Bytes()), (*[CoordSize]byte)(gY.Bytes()))
+		p, err := NewPointFromCoords((*[CoordSize]byte)(feGX.Bytes()), (*[CoordSize]byte)(feGY.Bytes()))
 		require.NoError(t, err, "NewPointFromCoords(gX, gY)")
 
 		requirePointEquals(t, NewGeneratorPoint(), p, "NewPointFromCoords(gX, gY)")
@@ -82,7 +82,7 @@ func testPointS11n(t *testing.T) {
 		b, err := g.XBytes()
 		require.NoError(t, err, "g.XBytes()")
 
-		require.EqualValues(t, gX.Bytes(), b, "g.XBytes()")
+		require.EqualValues(t, feGX.Bytes(), b, "g.XBytes()")
 
 		_, err = NewIdentityPoint().XBytes()
 		require.Error(t, err, "Identity.XBytes()")
@@ -230,7 +230,7 @@ func testPointScalarMult(t *testing.T) {
 	})
 	t.Run("2 * G", func(t *testing.T) {
 		g := NewGeneratorPoint()
-		s := newScalarFromSaturated(0, 0, 0, 2)
+		s := NewScalarFromUint64(2)
 
 		q := newRcvr().ScalarMult(s, g)
 		g.Double(g)
@@ -294,7 +294,7 @@ func testPointScalarBaseMult(t *testing.T) {
 	})
 	t.Run("2 * G", func(t *testing.T) {
 		g := NewGeneratorPoint()
-		s := newScalarFromSaturated(0, 0, 0, 2)
+		s := NewScalarFromUint64(2)
 
 		q := newRcvr().ScalarBaseMult(s)
 		g.Double(g)
@@ -426,7 +426,7 @@ func BenchmarkPoint(b *testing.B) {
 		}
 	})
 	b.Run("GLV/ScalarMult", func(b *testing.B) {
-		s := newScalarFromSaturated(0, 0, 0, 42069)
+		s := NewScalarFromUint64(42069)
 		q := NewGeneratorPoint()
 		b.ReportAllocs()
 		b.ResetTimer()

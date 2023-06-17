@@ -15,7 +15,7 @@ import (
 
 func testScalarSplit(t *testing.T) {
 	// Lambda = 0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72
-	lambda := newScalarFromSaturated(0x5363ad4cc05c30e0, 0xa5261c028812645a, 0x122e22ea20816678, 0xdf02967c1b23bd72)
+	lambda := newScalarFromCanonicalHex("0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72")
 
 	for i, v := range []*Scalar{
 		NewScalar(),
@@ -23,26 +23,26 @@ func testScalarSplit(t *testing.T) {
 		NewScalar().DebugMustRandomizeNonZero(),
 
 		// Test cases from libsecp256k1
-		newScalarFromSaturated(0xd938a5667f479e3e, 0xb5b3c7faefdb3749, 0x3aa0585cc5ea2367, 0xe1b660db0209e6fc),
-		newScalarFromSaturated(0xd938a5667f479e3e, 0xb5b3c7faefdb3749, 0x3aa0585cc5ea2367, 0xe1b660db0209e6fd),
-		newScalarFromSaturated(0xd938a5667f479e3e, 0xb5b3c7faefdb3749, 0x3aa0585cc5ea2367, 0xe1b660db0209e6fe),
-		newScalarFromSaturated(0xd938a5667f479e3e, 0xb5b3c7faefdb3749, 0x3aa0585cc5ea2367, 0xe1b660db0209e6ff),
-		newScalarFromSaturated(0x2c9c52b33fa3cf1f, 0x5ad9e3fd77ed9ba5, 0xb294b8933722e9a5, 0x00e698ca4cf7632d),
-		newScalarFromSaturated(0x2c9c52b33fa3cf1f, 0x5ad9e3fd77ed9ba5, 0xb294b8933722e9a5, 0x00e698ca4cf7632e),
-		newScalarFromSaturated(0x2c9c52b33fa3cf1f, 0x5ad9e3fd77ed9ba5, 0xb294b8933722e9a5, 0x00e698ca4cf7632f),
-		newScalarFromSaturated(0x2c9c52b33fa3cf1f, 0x5ad9e3fd77ed9ba5, 0xb294b8933722e9a5, 0x00e698ca4cf76330),
-		newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0xd576e73557a4501d, 0xdfe92f46681b209f),
-		newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0xd576e73557a4501d, 0xdfe92f46681b20a0),
-		newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0xd576e73557a4501d, 0xdfe92f46681b20a1),
-		newScalarFromSaturated(0x7fffffffffffffff, 0xffffffffffffffff, 0xd576e73557a4501d, 0xdfe92f46681b20a2),
-		newScalarFromSaturated(0xd363ad4cc05c30e0, 0xa5261c0288126459, 0xf85915d77825b696, 0xbeebc5c2833ede11),
-		newScalarFromSaturated(0xd363ad4cc05c30e0, 0xa5261c0288126459, 0xf85915d77825b696, 0xbeebc5c2833ede12),
-		newScalarFromSaturated(0xd363ad4cc05c30e0, 0xa5261c0288126459, 0xf85915d77825b696, 0xbeebc5c2833ede13),
-		newScalarFromSaturated(0xd363ad4cc05c30e0, 0xa5261c0288126459, 0xf85915d77825b696, 0xbeebc5c2833ede14),
-		newScalarFromSaturated(0x26c75a9980b861c1, 0x4a4c38051024c8b4, 0x704d760ee95e7cd3, 0xde1bfdb1ce2c5a42),
-		newScalarFromSaturated(0x26c75a9980b861c1, 0x4a4c38051024c8b4, 0x704d760ee95e7cd3, 0xde1bfdb1ce2c5a43),
-		newScalarFromSaturated(0x26c75a9980b861c1, 0x4a4c38051024c8b4, 0x704d760ee95e7cd3, 0xde1bfdb1ce2c5a44),
-		newScalarFromSaturated(0x26c75a9980b861c1, 0x4a4c38051024c8b4, 0x704d760ee95e7cd3, 0xde1bfdb1ce2c5a45),
+		newScalarFromCanonicalHex("0xd938a5667f479e3eb5b3c7faefdb37493aa0585cc5ea2367e1b660db0209e6fc"),
+		newScalarFromCanonicalHex("0xd938a5667f479e3eb5b3c7faefdb37493aa0585cc5ea2367e1b660db0209e6fd"),
+		newScalarFromCanonicalHex("0xd938a5667f479e3eb5b3c7faefdb37493aa0585cc5ea2367e1b660db0209e6fe"),
+		newScalarFromCanonicalHex("0xd938a5667f479e3eb5b3c7faefdb37493aa0585cc5ea2367e1b660db0209e6ff"),
+		newScalarFromCanonicalHex("0x2c9c52b33fa3cf1f5ad9e3fd77ed9ba5b294b8933722e9a500e698ca4cf7632d"),
+		newScalarFromCanonicalHex("0x2c9c52b33fa3cf1f5ad9e3fd77ed9ba5b294b8933722e9a500e698ca4cf7632e"),
+		newScalarFromCanonicalHex("0x2c9c52b33fa3cf1f5ad9e3fd77ed9ba5b294b8933722e9a500e698ca4cf7632f"),
+		newScalarFromCanonicalHex("0x2c9c52b33fa3cf1f5ad9e3fd77ed9ba5b294b8933722e9a500e698ca4cf76330"),
+		newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffffd576e73557a4501ddfe92f46681b209f"),
+		newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffffd576e73557a4501ddfe92f46681b20a0"),
+		newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffffd576e73557a4501ddfe92f46681b20a1"),
+		newScalarFromCanonicalHex("0x7fffffffffffffffffffffffffffffffd576e73557a4501ddfe92f46681b20a2"),
+		newScalarFromCanonicalHex("0xd363ad4cc05c30e0a5261c0288126459f85915d77825b696beebc5c2833ede11"),
+		newScalarFromCanonicalHex("0xd363ad4cc05c30e0a5261c0288126459f85915d77825b696beebc5c2833ede12"),
+		newScalarFromCanonicalHex("0xd363ad4cc05c30e0a5261c0288126459f85915d77825b696beebc5c2833ede13"),
+		newScalarFromCanonicalHex("0xd363ad4cc05c30e0a5261c0288126459f85915d77825b696beebc5c2833ede14"),
+		newScalarFromCanonicalHex("0x26c75a9980b861c14a4c38051024c8b4704d760ee95e7cd3de1bfdb1ce2c5a42"),
+		newScalarFromCanonicalHex("0x26c75a9980b861c14a4c38051024c8b4704d760ee95e7cd3de1bfdb1ce2c5a43"),
+		newScalarFromCanonicalHex("0x26c75a9980b861c14a4c38051024c8b4704d760ee95e7cd3de1bfdb1ce2c5a44"),
+		newScalarFromCanonicalHex("0x26c75a9980b861c14a4c38051024c8b4704d760ee95e7cd3de1bfdb1ce2c5a45"),
 	} {
 		t.Run(fmt.Sprintf("Case %d", i), func(t *testing.T) {
 			k1, k2 := v.splitGLV()

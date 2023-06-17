@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	// gX is the x-coordinate of the generator.
-	gX = field.NewElementFromSaturated(0x79be667ef9dcbbac, 0x55a06295ce870b07, 0x029bfcdb2dce28d9, 0x59f2815b16f81798)
+	// feGX is the x-coordinate of the generator.
+	feGX = field.NewElementFromCanonicalHex("0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
 
-	// gY is the y-coordinate of the generator.
-	gY = field.NewElementFromSaturated(0x483ada7726a3c465, 0x5da4fbfc0e1108a8, 0xfd17b448a6855419, 0x9c47d08ffb10d4b8)
+	// feGY is the y-coordinate of the generator.
+	feGY = field.NewElementFromCanonicalHex("0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8")
 )
 
 // Point represets a point on the secp256k1 curve.  All arguments and
@@ -50,8 +50,8 @@ func (v *Point) Identity() *Point {
 
 // Generator sets `v = G`, and returns `v`.
 func (v *Point) Generator() *Point {
-	v.x.Set(gX)
-	v.y.Set(gY)
+	v.x.Set(feGX)
+	v.y.Set(feGY)
 	v.z.One()
 
 	v.isValid = true

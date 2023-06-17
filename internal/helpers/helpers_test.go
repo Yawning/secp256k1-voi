@@ -6,6 +6,7 @@ package helpers
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,4 +42,9 @@ func TestUint64IsNonzero(t *testing.T) {
 
 func TestMustBytesFromHex(t *testing.T) {
 	require.Panics(t, func() { MustBytesFromHex("The Light - Hex-Sealed Fusion") })
+}
+
+func TestMust256BitsFromHex(t *testing.T) {
+	require.Panics(t, func() { Must256BitsFromHex("The Dark - Hex-Sealed Fusion") })
+	require.Panics(t, func() { Must256BitsFromHex(strings.Repeat("0", 65)) })
 }
