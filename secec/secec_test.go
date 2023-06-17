@@ -5,6 +5,7 @@
 package secec
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -68,17 +69,17 @@ func TestSecec(t *testing.T) {
 		ok := pub.VerifyASN1(testMessageHash, sig)
 		require.True(t, ok, "VerifyASN1")
 
-		bipSig := append([]byte{}, sig...)
+		bipSig := bytes.Clone(sig)
 		bipSig = append(bipSig, 69)
 		ok = pub.VerifyASN1BIP0066(testMessageHash, bipSig)
 		require.True(t, ok, "VerifyASN1BIP0066")
 
-		tmp := append([]byte{}, sig...)
+		tmp := bytes.Clone(sig)
 		tmp[0] ^= 0x69
 		ok = pub.VerifyASN1(testMessageHash, tmp)
 		require.False(t, ok, "VerifyASN1 - Corrupted sig")
 
-		tmp = append([]byte{}, testMessageHash...)
+		tmp = bytes.Clone(testMessageHash)
 		tmp[0] ^= 0x69
 		ok = pub.VerifyASN1(tmp, sig)
 		require.False(t, ok, "VerifyASN1 - Corrupted h")
@@ -156,7 +157,7 @@ func TestSecec(t *testing.T) {
 		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, sig)
 		require.True(t, ok, "VerifySelf")
 
-		tmp := append([]byte{}, sig...)
+		tmp := bytes.Clone(sig)
 		tmp[0] ^= 0x69
 		ok = pub.Verify(preHashedMsg, tmp)
 		require.False(t, ok, "Verify - Corrupted sig")
@@ -168,7 +169,7 @@ func TestSecec(t *testing.T) {
 		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, sig[:15])
 		require.False(t, ok, "VerifySelf - Truncated sig")
 
-		tmp = append([]byte{}, preHashedMsg...)
+		tmp = bytes.Clone(preHashedMsg)
 		tmp[0] ^= 0x69
 		ok = pub.Verify(tmp, sig)
 		require.False(t, ok, "Verify - Corrupted msg")

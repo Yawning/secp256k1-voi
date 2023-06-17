@@ -101,9 +101,7 @@ func (k *SchnorrPublicKey) Bytes() []byte {
 		panic(errAIsUninitialized)
 	}
 
-	var tmp [SchnorrPublicKeySize]byte
-	copy(tmp[:], k.xBytes)
-	return tmp[:]
+	return bytes.Clone(k.xBytes)
 }
 
 // Equal returns whether `x` represents the same public key as `k`.
@@ -175,7 +173,7 @@ func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 
 	return &SchnorrPublicKey{
 		point:  pt,
-		xBytes: append([]byte{}, key...),
+		xBytes: bytes.Clone(key),
 	}, nil
 }
 

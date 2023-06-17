@@ -5,6 +5,7 @@
 package secec
 
 import (
+	"bytes"
 	"crypto"
 	_ "crypto/sha256"
 	_ "crypto/sha512"
@@ -343,7 +344,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 		// Shitcoin adds a sighash to the end of signatures, that
 		// IsValidShitcoinSignatureEncoding expects in all the
 		// length checks.
-		bipSig := append([]byte{}, sigBytes...)
+		bipSig := bytes.Clone(sigBytes)
 		bipSig = append(bipSig, 69)
 		sigOkOneshot = publicKey.VerifyASN1BIP0066(hBytes, bipSig)
 

@@ -5,6 +5,7 @@
 package secp256k1
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -101,7 +102,7 @@ func testPointS11n(t *testing.T) {
 		require.Nil(t, p2, "SetCompressedBytes(truncated)")
 		require.Error(t, err, "SetCompressedBytes(truncated)")
 
-		b = append([]byte{}, pBytes...)
+		b = bytes.Clone(pBytes)
 		b[0] = 69
 
 		p2, err = NewIdentityPoint().SetCompressedBytes(b)
@@ -122,7 +123,7 @@ func testPointS11n(t *testing.T) {
 		require.Nil(t, p2, "SetUncompressedBytes(truncated)")
 		require.Error(t, err, "SetUncompressedBytes(truncated)")
 
-		b = append([]byte{}, pBytes...)
+		b = bytes.Clone(pBytes)
 		b[0] = 23
 
 		p2, err = NewIdentityPoint().SetUncompressedBytes(b)

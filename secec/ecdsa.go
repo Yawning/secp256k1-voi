@@ -337,10 +337,8 @@ func hashToScalar(hash []byte) (*secp256k1.Scalar, error) {
 	}
 
 	// TLDR; The left-most Ln-bits of hash.
-	var tmp [secp256k1.ScalarSize]byte
-	copy(tmp[:], hash)
-
-	s, _ := secp256k1.NewScalar().SetBytes(&tmp) // Reduction info unneeded.
+	tmp := (*[secp256k1.ScalarSize]byte)(hash[:secp256k1.ScalarSize])
+	s, _ := secp256k1.NewScalar().SetBytes(tmp) // Reduction info unneeded.
 	return s, nil
 }
 

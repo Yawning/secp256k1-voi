@@ -8,6 +8,7 @@
 package secec
 
 import (
+	"bytes"
 	"crypto"
 	csrand "crypto/rand"
 	"crypto/subtle"
@@ -93,9 +94,7 @@ func (k *PublicKey) Bytes() []byte {
 		panic(errAIsUninitialized)
 	}
 
-	var tmp [secp256k1.UncompressedPointSize]byte
-	copy(tmp[:], k.pointBytes)
-	return tmp[:]
+	return bytes.Clone(k.pointBytes)
 }
 
 // ASN1Bytes returns a copy of the ASN.1 encoding of the public key,
