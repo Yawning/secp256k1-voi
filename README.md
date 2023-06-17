@@ -56,6 +56,9 @@ languages, and totally, utterly hopeless in Go.
 - SIMD is used to accelerate the constant time table lookups.  Building
 with `purego` disables the use of assembly.  It is almost, but not
 quite, not even worth having variable-time variants of the multiplies.
+- The fiat-crypto ToBytes/FromBytes routines are not used due to our
+need to handle non-canonical encodings, and the fact that fiat expects
+and outputs little-endian, while big-endian is customary for this curve.
 - Worms in my brain, get them out.
 
 ##### Performance
