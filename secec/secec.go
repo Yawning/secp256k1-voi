@@ -20,6 +20,9 @@ import (
 	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
 )
 
+// PrivateKeySize is the size of a secp256k1 private key in bytes.
+const PrivateKeySize = 32
+
 var (
 	errAIsInfinity      = errors.New("secp256k1/secec: public key is the point at infinity")
 	errAIsUninitialized = errors.New("secp256k1/secec: uninitialized public key")
@@ -152,7 +155,7 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 // private key is also rejected, as the encoding of the corresponding
 // public key would be irregular.
 func NewPrivateKey(key []byte) (*PrivateKey, error) {
-	if len(key) != secp256k1.ScalarSize {
+	if len(key) != PrivateKeySize {
 		return nil, errors.New("secp256k1/secec: invalid private key size")
 	}
 

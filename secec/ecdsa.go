@@ -191,7 +191,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	// to do, even if this wasn't something that has historically
 	// been a large problem.
 
-	fixedRng, err := mitigateDebianAndSony(rand, domainSepECDSA, d, hBytes)
+	fixedRng, err := mitigateDebianAndSony(rand, domainSepECDSA, d, e)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -207,8 +207,8 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 		if err != nil {
 			// This is essentially totally untestable, as:
 			// - This is astronomically unlikely to begin with.
-			// - `fixedRng` is cSHAKE, so it is hard to force it to
-			//   generate pathologically bad output.
+			// - `fixedRng` is cSHAKE or HMAC_DRBG, so it is hard to
+			//   force it to generate pathologically bad output.
 			return nil, nil, 0, fmt.Errorf("secp256k1/secec/ecdsa: failed to generate k: %w", err)
 		}
 		R := secp256k1.NewIdentityPoint().ScalarBaseMult(k)
@@ -364,7 +364,7 @@ func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
 	return s, nil
 }
 
-func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, hBytes []byte) (io.Reader, error) {
+func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, e *secp256k1.Scalar) (io.Reader, error) {
 	// There are documented attacks that can exploit even the
 	// most subtle amounts of bias (< 1-bit) in the generation
 	// of the ECDSA nonce.
@@ -381,7 +381,10 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, hBytes []b
 	// - https://eprint.iacr.org/2020/615.pdf
 	// - https://eprint.iacr.org/2019/1155.pdf
 
-	if rand == nil {
+	switch rand {
+	case readerRFC6979SHA256:
+		return newDrbgRFC6979(k.scalar, e), nil
+	case nil:
 		rand = csrand.Reader
 	}
 
@@ -393,7 +396,7 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, hBytes []b
 	xof := sha3.NewCShake256(nil, []byte("Honorary Debian/Sony RNG mitigation:"+ctx))
 	_, _ = xof.Write(k.scalar.Bytes())
 	_, _ = xof.Write(tmp[:])
-	_, _ = xof.Write(hBytes)
+	_, _ = xof.Write(e.Bytes())
 	return xof, nil
 }
 

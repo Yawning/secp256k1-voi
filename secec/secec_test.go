@@ -149,7 +149,7 @@ func TestSecec(t *testing.T) {
 
 		_, d := priv.valuesForSignSchnorr()
 
-		sig, err := priv.SignSchnorr(rand.Reader, preHashedMsg)
+		sig, err := priv.SignSchnorr(nil, preHashedMsg)
 		require.NoError(t, err, "SignSchnorr")
 
 		ok := pub.Verify(preHashedMsg, sig)
@@ -180,6 +180,10 @@ func TestSecec(t *testing.T) {
 		require.Error(t, err, "PreHashSchnorrMessage - no domain sep")
 
 		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
+
+		require.Panics(t, func() {
+			priv.SignSchnorr(RFC6979SHA256(), preHashedMsg)
+		})
 	})
 	t.Run("Schnorr/TestVectors", testSchnorrKAT)
 	t.Run("PrivateKey/Generate", func(t *testing.T) {

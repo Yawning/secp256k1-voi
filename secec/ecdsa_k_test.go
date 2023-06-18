@@ -7,7 +7,13 @@ package secec
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/csv"
+	"encoding/hex"
+	"fmt"
 	"io"
+	"math/big"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -188,32 +194,11 @@ func testEcdsaK(t *testing.T) {
 	testKey, err := newPrivateKeyFromScalar(testKeyScalar)
 	require.NoError(t, err, "newPrivateKeyFromScalar")
 
-	t.Run("MitigateDebianAndSony/DomainSep", func(t *testing.T) {
-		// As we use the same nonce generation routine between ECDSA
-		// and Schnorr signatures, validate that domain separation
-		// works as expected, by generating 2 scalars with the
-		// degraded deterministic rng, and ensuring that changing
-		// the domain separator changes the scalar.
-		//
-		// Note: This is what the 'c' in 'cSHAKE' is for, so if this
-		// test ever fails, something is very badly fucked up.
-
-		genScalar := func(domainSep string) *secp256k1.Scalar {
-			rng, err := mitigateDebianAndSony(newZeroReader(), domainSep, testKey, msg1Hash)
-			require.NoError(t, err, "mitigateDebianAndSony(%s)", domainSep)
-
-			s, err := sampleRandomScalar(rng)
-			require.NoError(t, err, "sampleRandomScalar(%s)", domainSep)
-			return s
-		}
-
-		scalarEcdsa := genScalar(domainSepECDSA)
-		scalarSchnorr := genScalar(domainSepSchnorr) // Only thing that changes is the domain separator.
-
-		require.NotEqualValues(t, scalarEcdsa.Bytes(), scalarSchnorr.Bytes())
-	})
 	t.Run("MitigateDebianAndSony/BadRng", func(t *testing.T) {
-		rng, err := mitigateDebianAndSony(newBadReader(13), domainSepECDSA, testKey, msg1Hash)
+		e, err := hashToScalar(msg1Hash)
+		require.NoError(t, err, "hashToScalar")
+
+		rng, err := mitigateDebianAndSony(newBadReader(13), domainSepECDSA, testKey, e)
 		require.Nil(t, rng, "mitigateDebianAndSony - badReader")
 		require.ErrorIs(t, err, errEntropySource, "mitigateDebianAndSony - badReader")
 
@@ -225,6 +210,44 @@ func testEcdsaK(t *testing.T) {
 		require.Nil(t, badSig, "SignSchnorr - badReader")
 		require.ErrorIs(t, err, errEntropySource, "SignSchnorr - badReader")
 	})
+
+	t.Run("RFC6979/SHA256/TestVectors", testRFC6979KAT)
+}
+
+func testRFC6979KAT(t *testing.T) {
+	f, err := os.Open("testdata/secp256k1_rfc6979_sha256.csv")
+	require.NoError(t, err, "Open")
+	defer f.Close()
+
+	rd := csv.NewReader(f)
+	rd.Comment = '#'
+	records, err := rd.ReadAll()
+	require.NoError(t, err, "cvs.ReadAll")
+
+	const (
+		fieldPrivKey   = 0
+		fieldMessage   = 1
+		fieldSignature = 2
+	)
+
+	for i, vec := range records {
+		n := fmt.Sprintf("TestCase/%d", i)
+		t.Run(n, func(t *testing.T) {
+			privInt, ok := new(big.Int).SetString(vec[fieldPrivKey], 10)
+			require.True(t, ok, "big.Int().SetString")
+
+			var privBytes [PrivateKeySize]byte
+			privInt.FillBytes(privBytes[:])
+
+			privKey, err := NewPrivateKey(privBytes[:])
+			require.NoError(t, err, "NewPrivateKey")
+
+			sig, err := privKey.SignASN1(RFC6979SHA256(), hashMsgForTests([]byte(vec[fieldMessage])))
+			require.NoError(t, err, "SignASN1")
+
+			require.Equal(t, vec[fieldSignature], strings.ToUpper(hex.EncodeToString(sig)), "SignASN1 - RFC6979")
+		})
+	}
 }
 
 func mustScalarFromHex(t *testing.T, x string) *secp256k1.Scalar {

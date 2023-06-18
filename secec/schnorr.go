@@ -7,6 +7,7 @@ package secec
 import (
 	"bytes"
 	"crypto"
+	csrand "crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
@@ -32,8 +33,6 @@ const (
 	schnorrTagAux       = "BIP0340/aux"
 	schnorrTagNonce     = "BIP0340/nonce"
 	schnorrTagChallenge = "BIP0340/challenge"
-
-	domainSepSchnorr = "BIP0340-Sign"
 )
 
 // PreHashSchnorrMessage pre-hashes the message `msg`, with the
@@ -62,26 +61,23 @@ func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 	// RFC6979 can lead to key compromise if the same key is shared
 	// between ECDSA and Schnorr signatures due to nonce reuse.
 	//
-	// This implementation handles that problem by using cSHAKE with
-	// a domain separation parameter depending on usage, so even in
-	// the pathological case where the entropy source is non-functional,
-	// the sampled entropy will be distinct between ECDSA and Schnorr
-	// signatures.
+	// We implement the nonce generation as per the BIP, so the
+	// tagged hashing mechanism is sufficient to handle this case,
+	// and will do the "right" thing when the entropy source is
+	// broken by incorporating k and msg into the nonce.
 	//
-	// Other libraries may or may not have this sort of safeguard in
-	// place, so it still might not be the best idea to use the same
-	// signing key for both schemes, but it is theoretically safe with
-	// this library, and other libraries just need to not suck.
+	// In theory, the cSHAKE based algorithm that is used by default
+	// in our ECDSA algorithm also will do the right thing, but
+	// following the standard lets us test against their test
+	// vectors.
 
-	fixedRng, err := mitigateDebianAndSony(rand, domainSepSchnorr, k, msg)
-	if err != nil {
-		return nil, err
+	if rand == nil {
+		rand = csrand.Reader
 	}
+
 	var auxEntropy [schnorrEntropySize]byte
-	if _, err = io.ReadFull(fixedRng, auxEntropy[:]); err != nil {
-		// This is untestable as it requires failing to read from
-		// an initialized cSHAKE instance.
-		return nil, err
+	if _, err := io.ReadFull(rand, auxEntropy[:]); err != nil {
+		return nil, errors.Join(errEntropySource, err)
 	}
 
 	return signSchnorr(&auxEntropy, k, msg)
