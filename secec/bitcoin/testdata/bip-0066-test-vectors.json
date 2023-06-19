@@ -149,6 +149,11 @@
       {
         "exception": "^Error: S value excessively padded$",
         "DER": "300c020400ffffff02040000ffff"
+      },
+      {
+        "XXX/yawning": "Not sure why the other one doesn't fail where expected",
+        "exception": "^Error: Expected DER integer \\(2\\)$",
+        "DER": "3012020145030d006e6f742061206e756d626572"
       }
     ]
   }

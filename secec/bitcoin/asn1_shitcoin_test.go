@@ -5,6 +5,7 @@
 package bitcoin
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/yawning/secp256k1-voi"
 	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
@@ -45,8 +47,43 @@ func TestBIP0066(t *testing.T) {
 	err = dec.Decode(&testVectors)
 	require.NoError(t, err, "dec.Decode")
 
+	for i, testCase := range testVectors.Valid {
+		n := fmt.Sprintf("TestVectors/Valid/%d", i)
+		t.Run(n, func(t *testing.T) {
+			b := helpers.MustBytesFromHex(testCase.DER)
+			b = append(b, 69) // Append the sighash byte.
+			ok := IsValidSignatureEncodingBIP0066(b)
+
+			require.True(t, ok, "IsValidSignatureEncodingBIP0066")
+
+			rBytes := helpers.MustBytesFromHex(testCase.R)
+			sBytes := helpers.MustBytesFromHex(testCase.S)
+
+			rBytes = bytes.TrimLeft(rBytes, string([]byte{0x00}))
+			sBytes = bytes.TrimLeft(sBytes, string([]byte{0x00}))
+			rBytes = append(bytes.Repeat([]byte{0x00}, secp256k1.ScalarSize-len(rBytes)), rBytes...)
+			sBytes = append(bytes.Repeat([]byte{0x00}, secp256k1.ScalarSize-len(sBytes)), sBytes...)
+
+			expectedR, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(rBytes))
+			require.NoError(t, err, "NewScalarFromCanonicalBytes - rBytes")
+			expectedS, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(sBytes))
+			require.NoError(t, err, "NewScalarFromCanonicalBytes - sBytes")
+
+			r, s, err := parseASN1SignatureShitcoin(b)
+			switch i {
+			case 8: // Test case has bad r + s
+				require.EqualValues(t, 1, expectedR.IsZero())
+				require.EqualValues(t, 1, expectedS.IsZero())
+				require.Error(t, err, "parseASN1SignatureShitcoin")
+			default:
+				require.NoError(t, err, "parseASN1SignatureShitcoin")
+				require.EqualValues(t, 1, expectedR.Equal(r))
+				require.EqualValues(t, 1, expectedS.Equal(s))
+			}
+		})
+	}
 	for i, testCase := range testVectors.Invalid.Decode {
-		n := fmt.Sprintf("TestCase/%d", i)
+		n := fmt.Sprintf("TestVectors/Invalid/%d", i)
 		t.Run(n, func(t *testing.T) {
 			t.Log(testCase.Exception)
 
@@ -55,6 +92,9 @@ func TestBIP0066(t *testing.T) {
 			ok := IsValidSignatureEncodingBIP0066(b)
 
 			require.False(t, ok, "IsValidSignatureEncodingBIP0066")
+
+			_, _, err := parseASN1SignatureShitcoin(b)
+			require.Error(t, err, "parseASN1SignatureShitcoin")
 		})
 	}
 }
