@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-package secec
+// Package h2c implements the "Hashing to Elliptic Curves" IETF draft.
+package h2c
 
 import (
 	"crypto"

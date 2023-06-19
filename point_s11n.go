@@ -278,6 +278,20 @@ func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	return newRcvr().SetCompressedBytes(ptCompressed)
 }
 
+// SplitUncompressedPoint splits the SEC 1, Verson 2.0, Section 2.3.3
+// uncompressed encoding of a point into the 256-bit big-endian byte
+// encoding of the x-coordinate, and a uint64 indicating if the
+// y-coordinate is odd.
+func SplitUncompressedPoint(ptBytes []byte) ([]byte, uint64) {
+	if len(ptBytes) != UncompressedPointSize {
+		panic("secp256k1: invalid uncompressed point for split")
+	}
+	xBytes := ptBytes[1 : 1+CoordSize]
+	yIsOdd := uint64(ptBytes[len(ptBytes)-1] & 1)
+
+	return xBytes, yIsOdd
+}
+
 func xyOnCurve(x, y *field.Element) uint64 {
 	return maybeYY(x).Equal(field.NewElement().Square(y))
 }

@@ -69,11 +69,6 @@ func TestSecec(t *testing.T) {
 		ok := pub.VerifyASN1(testMessageHash, sig)
 		require.True(t, ok, "VerifyASN1")
 
-		bipSig := bytes.Clone(sig)
-		bipSig = append(bipSig, 69)
-		ok = pub.VerifyASN1BIP0066(testMessageHash, bipSig)
-		require.True(t, ok, "VerifyASN1BIP0066")
-
 		tmp := bytes.Clone(sig)
 		tmp[0] ^= 0x69
 		ok = pub.VerifyASN1(testMessageHash, tmp)
@@ -135,57 +130,7 @@ func TestSecec(t *testing.T) {
 		require.ErrorIs(t, err, errInvalidDigest, "RecoverPublicKey - Truncated h")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
-	t.Run("Schnorr", func(t *testing.T) {
-		priv, err := GenerateKey(rand.Reader)
-		require.NoError(t, err, "GenerateKey")
 
-		pub := priv.SchnorrPublicKey()
-
-		preHashedMsg, err := PreHashSchnorrMessage(
-			"secp256k1-voi/BIP0340/test",
-			[]byte(testMessage),
-		)
-		require.NoError(t, err, "PreHashSchnorrMessage")
-
-		_, d := priv.valuesForSignSchnorr()
-
-		sig, err := priv.SignSchnorr(nil, preHashedMsg)
-		require.NoError(t, err, "SignSchnorr")
-
-		ok := pub.Verify(preHashedMsg, sig)
-		require.True(t, ok, "Verify")
-		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, sig)
-		require.True(t, ok, "VerifySelf")
-
-		tmp := bytes.Clone(sig)
-		tmp[0] ^= 0x69
-		ok = pub.Verify(preHashedMsg, tmp)
-		require.False(t, ok, "Verify - Corrupted sig")
-		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, tmp)
-		require.False(t, ok, "VerifySelf - Corrupted sig")
-
-		ok = pub.Verify(tmp, sig[:17])
-		require.False(t, ok, "Verify - Truncated sig")
-		ok = verifySchnorrSelf(d, pub.Bytes(), preHashedMsg, sig[:15])
-		require.False(t, ok, "VerifySelf - Truncated sig")
-
-		tmp = bytes.Clone(preHashedMsg)
-		tmp[0] ^= 0x69
-		ok = pub.Verify(tmp, sig)
-		require.False(t, ok, "Verify - Corrupted msg")
-		ok = verifySchnorrSelf(d, pub.Bytes(), tmp, sig)
-		require.False(t, ok, "VerifySelf - Corrupted msg")
-
-		_, err = PreHashSchnorrMessage("", []byte(testMessage))
-		require.Error(t, err, "PreHashSchnorrMessage - no domain sep")
-
-		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
-
-		require.Panics(t, func() {
-			priv.SignSchnorr(RFC6979SHA256(), preHashedMsg)
-		})
-	})
-	t.Run("Schnorr/TestVectors", testSchnorrKAT)
 	t.Run("PrivateKey/Generate", func(t *testing.T) {
 		priv, err := GenerateKey(nil)
 		require.NotNil(t, priv, "GenerateKey - nil")
@@ -250,19 +195,6 @@ func TestSecec(t *testing.T) {
 			new(PublicKey).IsYOdd()
 		}, "uninitialized.IsYOdd()")
 	})
-	t.Run("SchnorrPublicKey/Malformed", func(t *testing.T) {
-		k, err := NewSchnorrPublicKey([]byte{0x45, 0x45, 0x45, 0x45})
-		require.Nil(t, k, "NewSchnorrPublicKey - truncated")
-		require.Error(t, err, "NewSchnorrPublicKey - truncated")
-
-		k, err = NewSchnorrPublicKeyFromPoint(secp256k1.NewIdentityPoint())
-		require.Nil(t, k, "NewSchnorrPublicKeyFromPoint - identity")
-		require.ErrorIs(t, err, errAIsInfinity, "NewSchnorrPublicKeyFromPoint - identity")
-
-		require.PanicsWithValue(t, errAIsUninitialized, func() {
-			new(SchnorrPublicKey).Bytes()
-		}, "uninitialized.Bytes()")
-	})
 }
 
 func BenchmarkSecec(b *testing.B) {
@@ -273,13 +205,9 @@ func BenchmarkSecec(b *testing.B) {
 	randomPriv2, err := GenerateKey(rand.Reader)
 	require.NoError(b, err)
 	randomPub := randomPriv2.PublicKey()
-	randomSchnorrPub := randomPriv2.SchnorrPublicKey()
 	randomPublicBytes := randomPub.Bytes()
 
 	randomSig, err := randomPriv2.SignASN1(rand.Reader, testMessageHash)
-	require.NoError(b, err)
-
-	randomSchnorrSig, err := randomPriv2.SignSchnorr(rand.Reader, testMessageHash)
 	require.NoError(b, err)
 
 	randomR, randomS, randomRecID, err := randomPriv2.Sign(rand.Reader, testMessageHash)
@@ -337,14 +265,6 @@ func BenchmarkSecec(b *testing.B) {
 				_, _ = randomPriv.SignASN1(rand.Reader, testMessageHash)
 			}
 		})
-		b.Run("SignSchnorr", func(b *testing.B) {
-			b.ReportAllocs()
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				_, _ = randomPriv.SignSchnorr(rand.Reader, testMessageHash)
-			}
-		})
 	})
 	b.Run("PublicKey", func(b *testing.B) {
 		b.Run("Bytes", func(b *testing.B) {
@@ -361,15 +281,6 @@ func BenchmarkSecec(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				ok := randomPub.VerifyASN1(testMessageHash, randomSig)
-				require.True(b, ok)
-			}
-		})
-		b.Run("VerifySchnorr", func(b *testing.B) {
-			b.ReportAllocs()
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				ok := randomSchnorrPub.Verify(testMessageHash, randomSchnorrSig)
 				require.True(b, ok)
 			}
 		})

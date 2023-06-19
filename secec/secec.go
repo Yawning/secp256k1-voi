@@ -32,9 +32,8 @@ var (
 type PrivateKey struct {
 	_ disalloweq.DisallowEqual
 
-	scalar           *secp256k1.Scalar // INVARIANT: Always [1,n)
-	publicKey        *PublicKey
-	schnorrPublicKey *SchnorrPublicKey
+	scalar    *secp256k1.Scalar // INVARIANT: Always [1,n)
+	publicKey *PublicKey
 }
 
 // Bytes returns a copy of the encoding of the private key.
@@ -44,7 +43,7 @@ func (k *PrivateKey) Bytes() []byte {
 
 // Scalar returns a copy of the scalar underlying `k`.
 func (k *PrivateKey) Scalar() *secp256k1.Scalar {
-	return secp256k1.NewScalar().Set(k.scalar)
+	return secp256k1.NewScalarFrom(k.scalar)
 }
 
 // ECDH performs a ECDH exchange and returns the shared secret as
@@ -75,12 +74,6 @@ func (k *PrivateKey) Public() crypto.PublicKey {
 // PublicKey returns the ECDSA/ECDH public key corresponding to `k`.
 func (k *PrivateKey) PublicKey() *PublicKey {
 	return k.publicKey
-}
-
-// SchnorrPublicKey returns the BIP-0340 Schnorr signature public key
-// corresponding to `k`.
-func (k *PrivateKey) SchnorrPublicKey() *SchnorrPublicKey {
-	return k.schnorrPublicKey
 }
 
 // PublicKey is a secp256k1 public key.
@@ -128,7 +121,7 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 func (k *PublicKey) IsYOdd() bool {
 	// Since the PublicKey caches the uncompressed point, this
 	// is simple and fast.
-	_, yIsOdd := splitUncompressedPoint(k.pointBytes)
+	_, yIsOdd := secp256k1.SplitUncompressedPoint(k.pointBytes)
 	return yIsOdd != 0
 }
 
@@ -177,7 +170,6 @@ func newPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
 		},
 	}
 	privateKey.publicKey.pointBytes = privateKey.publicKey.point.UncompressedBytes()
-	privateKey.schnorrPublicKey = newSchnorrPublicKeyFromPrivateKey(privateKey)
 
 	return privateKey, nil
 }
@@ -217,14 +209,4 @@ func NewPublicKeyFromPoint(point *secp256k1.Point) (*PublicKey, error) {
 		point:      pt,
 		pointBytes: pt.UncompressedBytes(),
 	}, nil
-}
-
-func splitUncompressedPoint(ptBytes []byte) ([]byte, uint64) {
-	if len(ptBytes) != secp256k1.UncompressedPointSize {
-		panic("secp256k1/secec: invalid uncompressed point for split")
-	}
-	xBytes := ptBytes[1 : 1+secp256k1.CoordSize]
-	yIsOdd := uint64(ptBytes[len(ptBytes)-1] & 1)
-
-	return xBytes, yIsOdd
 }

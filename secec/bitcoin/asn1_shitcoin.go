@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-package secec
+package bitcoin
 
 import (
 	"encoding/asn1"
 	"errors"
 
 	"gitlab.com/yawning/secp256k1-voi"
+	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
 // IsValidSignatureEncodingBIP0066 returns true iff `data` is encoded
@@ -124,5 +125,5 @@ func parseASN1SignatureShitcoin(data []byte) (*secp256k1.Scalar, *secp256k1.Scal
 		return nil, nil, errors.New("secp256k1/secec/ecdsa: malformed BIP-0066 signature")
 	}
 
-	return ParseASN1Signature(data[:len(data)-1]) // Ignore the sighash
+	return secec.ParseASN1Signature(data[:len(data)-1]) // Ignore the sighash
 }

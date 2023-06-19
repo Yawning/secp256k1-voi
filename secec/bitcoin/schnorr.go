@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-package secec
+package bitcoin
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ import (
 	"gitlab.com/yawning/secp256k1-voi"
 	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
 	"gitlab.com/yawning/secp256k1-voi/internal/field"
+	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
 const (
@@ -35,6 +36,13 @@ const (
 	schnorrTagChallenge = "BIP0340/challenge"
 )
 
+var (
+	errAIsInfinity      = errors.New("secp256k1/secec/bitcoin: public key is the point at infinity")
+	errAIsUninitialized = errors.New("secp256k1/secec/bitcoin: uninitialized public key")
+
+	errEntropySource = errors.New("secp256k1/secec/bitcoin: entropy source failure")
+)
+
 // PreHashSchnorrMessage pre-hashes the message `msg`, with the
 // domain-separator `name`, as suggested in BIP-0340.  It returns
 // the byte-encoded pre-hashed message.
@@ -45,18 +53,59 @@ const (
 func PreHashSchnorrMessage(name string, msg []byte) ([]byte, error) {
 	// Go strings are UTF-8 by default, but this accepts user input.
 	if n := strings.ToValidUTF8(name, ""); n != name || len(name) == 0 {
-		return nil, fmt.Errorf("secp256k1/secec/schnorr: invalid domain-separator")
+		return nil, fmt.Errorf("secp256k1/secec/bitcoin/schnorr: invalid domain-separator")
 	}
 
 	return schnorrTaggedHash(name, msg), nil
 }
 
-// SignSchnorr signs signs `msg` using the PrivateKey `k`, using the
-// signing procedure as specified in BIP-0340.  It returns the
+// SchnorrPrivateKey is a private key for sigining BIP-0340 Schnorr signatures.
+type SchnorrPrivateKey struct {
+	_ disalloweq.DisallowEqual
+
+	dPrime *secp256k1.Scalar // The raw scalar
+	d      *secp256k1.Scalar // dPrime negated as required
+
+	publicKey *SchnorrPublicKey
+}
+
+// Bytes returns a copy of the encoding of the private key.
+func (k *SchnorrPrivateKey) Bytes() []byte {
+	return k.dPrime.Bytes()
+}
+
+// Scalar returns a copy of the scalar underlying `k`.
+func (k *SchnorrPrivateKey) Scalar() *secp256k1.Scalar {
+	return secp256k1.NewScalarFrom(k.dPrime)
+}
+
+// Equal returns whether `x` represents the same private key as `k`.
+// This check is performed in constant time as long as the key types
+// match.
+func (k *SchnorrPrivateKey) Equal(x crypto.PrivateKey) bool {
+	other, ok := x.(*SchnorrPrivateKey)
+	if !ok {
+		return false
+	}
+
+	return other.dPrime.Equal(k.dPrime) == 1
+}
+
+func (k *SchnorrPrivateKey) Public() crypto.PublicKey {
+	return k.publicKey
+}
+
+// PublicKey returns the Schnorr public key corresponding to `k`.
+func (k *SchnorrPrivateKey) PublicKey() *SchnorrPublicKey {
+	return k.publicKey
+}
+
+// Sign signs signs `msg` using the SchnorrPrivateKey `k`, using
+// the signing procedure as specified in BIP-0340.  It returns the
 // byte-encoded signature.
 //
 // Note: If `rand` is nil, the [crypto/rand.Reader] will be used.
-func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
+func (k *SchnorrPrivateKey) Sign(rand io.Reader, msg []byte) ([]byte, error) {
 	// BIP-0340 cautions about how deterministic nonce creation a la
 	// RFC6979 can lead to key compromise if the same key is shared
 	// between ECDSA and Schnorr signatures due to nonce reuse.
@@ -81,6 +130,50 @@ func (k *PrivateKey) SignSchnorr(rand io.Reader, msg []byte) ([]byte, error) {
 	}
 
 	return signSchnorr(&auxEntropy, k, msg)
+}
+
+// NewSchnorrPrivateKey checks that `key` is valid, and returns a
+// SchnorrPrivateKey.
+func NewSchnorrPrivateKey(key []byte) (*SchnorrPrivateKey, error) {
+	ecdsaPriv, err := secec.NewPrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSchnorrPrivateKeyFromECDSA(ecdsaPriv), nil
+}
+
+// GenerateSchnorrKey generates a new SchnorrPrivateKey from `rand`.
+// If `rand` is nil, [crypto/rand.Reader] will be used.
+func GenerateSchnorrKey(rand io.Reader) (*SchnorrPrivateKey, error) {
+	ecdsaPriv, err := secec.GenerateKey(rand)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSchnorrPrivateKeyFromECDSA(ecdsaPriv), nil
+}
+
+// NewSchnorrPrivateKeyFromECDSA returns the SchnorrPrivateKey corresponding
+// to the ECDSA PrivateKey `sk`.
+func NewSchnorrPrivateKeyFromECDSA(sk *secec.PrivateKey) *SchnorrPrivateKey {
+	priv := &SchnorrPrivateKey{
+		dPrime: sk.Scalar(),
+	}
+
+	// Precompute P and d for signing.
+	pXBytes, negateD := secp256k1.SplitUncompressedPoint(sk.PublicKey().Bytes())
+	priv.d = secp256k1.NewScalar().ConditionalNegate(priv.dPrime, negateD)
+
+	pt := sk.PublicKey().Point() // Copies.
+	pt.ConditionalNegate(pt, negateD)
+
+	priv.publicKey = &SchnorrPublicKey{
+		point:  pt,
+		xBytes: pXBytes,
+	}
+
+	return priv
 }
 
 // SchnorrPublicKey is a public key for verifying BIP-0340 Schnorr signatures.
@@ -155,7 +248,7 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 // SchnorrPublicKey.
 func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 	if len(key) != SchnorrPublicKeySize {
-		return nil, errors.New("secp256k1/secec/schnorr: invalid public key")
+		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: invalid public key")
 	}
 
 	var ptBytes [secp256k1.CompressedPointSize]byte
@@ -164,7 +257,7 @@ func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 
 	pt, err := secp256k1.NewPointFromBytes(ptBytes[:])
 	if err != nil {
-		return nil, fmt.Errorf("secp256k1/secec/schnorr: failed to decompress public key: %w", err)
+		return nil, fmt.Errorf("secp256k1/secec/bitcoin/schnorr: failed to decompress public key: %w", err)
 	}
 
 	return &SchnorrPublicKey{
@@ -195,16 +288,12 @@ func NewSchnorrPublicKeyFromPoint(point *secp256k1.Point) (*SchnorrPublicKey, er
 	}, nil
 }
 
-func newSchnorrPublicKeyFromPrivateKey(sk *PrivateKey) *SchnorrPublicKey {
-	pt := secp256k1.NewPointFrom(sk.publicKey.point)
-
-	xBytes, yIsOdd := splitUncompressedPoint(sk.publicKey.pointBytes)
-	pt.ConditionalNegate(pt, yIsOdd)
-
-	return &SchnorrPublicKey{
-		point:  pt,
-		xBytes: xBytes,
-	}
+// NewSchnorrPublicKeyFromECDSA returns the SchnorrPublicKey corresponding
+// to the ECDSA PrivateKey `sk`.
+func NewSchnorrPublicKeyFromECDSA(pk *secec.PublicKey) *SchnorrPublicKey {
+	// Can't fail, pk.Point is never identity.
+	pub, _ := NewSchnorrPublicKeyFromPoint(pk.Point())
+	return pub
 }
 
 func schnorrTaggedHash(tag string, vals ...[]byte) []byte {
@@ -220,31 +309,19 @@ func schnorrTaggedHash(tag string, vals ...[]byte) []byte {
 	return h.Sum(nil)
 }
 
-func (k *PrivateKey) valuesForSignSchnorr() ([]byte, *secp256k1.Scalar) {
-	// This step from the signing process is extracted out so that
-	// it can be used in tests.
-
-	pBytes, negateD := splitUncompressedPoint(k.PublicKey().Bytes())
-	d := secp256k1.NewScalarFrom(k.scalar)
-	d.ConditionalNegate(d, negateD)
-	return pBytes, d
-}
-
-func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) ([]byte, error) {
+func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg []byte) ([]byte, error) {
 	// The algorithm Sign(sk, m) is defined as:
 
 	// Let d' = int(sk)
 	// Fail if d' = 0 or d' ≥ n
 	// Let P = d'⋅G
+	// Let d = d' if has_even_y(P), otherwise let d = n - d' .
 	//
 	// Note/yawning: sk is a pre-deserialized private key, that is
-	// guaranteed to be valid.  Likewise sk.PublicKey() is pre-generated,
-	// and is used over sk.SchnorrPublicKey(), because the SchnorrPublicKey
-	// caches the result of lift_x for verification.
+	// guaranteed to be valid.  There is no reason not to pre-compute
+	// P and d so we do.
 
-	// Let d = d' if has_even_y(P), otherwise let d = n - d' .
-
-	pBytes, d := sk.valuesForSignSchnorr()
+	pBytes, d := sk.publicKey.xBytes, sk.d
 
 	// Let t be the byte-wise xor of bytes(d) and hashBIP0340/aux(a)[11].
 
@@ -264,13 +341,13 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) 
 	if kPrime.IsZero() != 0 {
 		// In theory this is a probabalistic failure, however the odds
 		// of this happening are basically non-existent.
-		return nil, errors.New("secp256k1/secec/schnorr: k' = 0")
+		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: k' = 0")
 	}
 
 	// Let R = k'⋅G.
 
 	R := secp256k1.NewIdentityPoint().ScalarBaseMult(kPrime)
-	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
+	rXBytes, rYIsOdd := secp256k1.SplitUncompressedPoint(R.UncompressedBytes())
 
 	// Let k = k' if has_even_y(R), otherwise let k = n - k' .
 
@@ -303,10 +380,10 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *PrivateKey, msg []byte) 
 	// Note: Apart from the faster calculation of R, the verification
 	// process is identical to the normal verify.
 
-	if !verifySchnorrSelf(d, sk.SchnorrPublicKey().Bytes(), msg[:], sig) {
+	if !verifySchnorrSelf(d, sk.PublicKey().Bytes(), msg[:], sig) {
 		// This is likely totally untestable, since it requires
 		// generating a signature that doesn't verify.
-		return nil, errors.New("secp256k1/secec/schnorr: failed to verify sig")
+		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: failed to verify sig")
 	}
 
 	return sig, nil
@@ -371,7 +448,7 @@ func verifySchnorrSignatureR(sigRXBytes []byte, R *secp256k1.Point) bool {
 	// Note/yawning: Doing it this way saves repeated rescaling, since
 	// the curve implementation always does the inversion.
 
-	rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
+	rXBytes, rYIsOdd := secp256k1.SplitUncompressedPoint(R.UncompressedBytes())
 
 	// Fail if not has_even_y(R).
 

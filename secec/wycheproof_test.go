@@ -5,7 +5,6 @@
 package secec
 
 import (
-	"bytes"
 	"crypto"
 	_ "crypto/sha256"
 	_ "crypto/sha512"
@@ -31,13 +30,9 @@ const (
 	fileEcdhWebCrypto  = "./testdata/wycheproof/ecdh_secp256k1_webcrypto_test.json"
 	fileEcdsaAsnSha256 = "./testdata/wycheproof/ecdsa_secp256k1_sha256_test.json"
 	fileEcdsaAsnSha512 = "./testdata/wycheproof/ecdsa_secp256k1_sha512_test.json"
-	fileEcdsaShitcoin  = "./testdata/wycheproof/ecdsa_secp256k1_sha256_bitcoin_test.json"
 
 	jwkKtyEc        = "EC"
 	jwkCrvSecp256k1 = "P-256K"
-
-	typeEcdsaVerify         = "EcdsaVerify"
-	typeEcdsaShitcoinVerify = "EcdsaBitcoinVerify"
 
 	resultValid      = "valid"
 	resultAcceptable = "acceptable"
@@ -336,34 +331,8 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 
 	mustFail := tc.Result != resultValid
 
-	var sigOkOneshot bool
-	switch tg.Type {
-	case typeEcdsaVerify:
-		sigOkOneshot = publicKey.VerifyASN1(hBytes, sigBytes)
-	case typeEcdsaShitcoinVerify:
-		// Shitcoin adds a sighash to the end of signatures, that
-		// IsValidShitcoinSignatureEncoding expects in all the
-		// length checks.
-		bipSig := bytes.Clone(sigBytes)
-		bipSig = append(bipSig, 69)
-		sigOkOneshot = publicKey.VerifyASN1BIP0066(hBytes, bipSig)
-
-		// The following test cases are test cases that could/should
-		// trip the malleability check, but are flagged differently.
-		//
-		// 176 - Signature with special case values r=1 and s=n - 1
-		// 200 - Signature with special case values r=n - 1 and s=n - 1
-		// 388 - edge case for signature malleability
-		//
-		// Of which we only need to fixup the flags for 388, because
-		// the other cases, the signature is flat out invalid even
-		// without the special case.
-		switch tc.ID {
-		case 388:
-			tc.Flags = []string{"SignatureMalleabilityBitcoin"}
-		}
-	}
-	require.EqualValues(t, !mustFail, sigOkOneshot, "one-shot signature verification: %+v", tc.Flags)
+	sigOk := publicKey.VerifyASN1(hBytes, sigBytes)
+	require.EqualValues(t, !mustFail, sigOk, "one-shot signature verification: %+v", tc.Flags)
 
 	// Convert flags to expected error (or lack-thereof).
 	//
@@ -435,17 +404,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 
 	err = verify(publicKey, hBytes, r, s)
 	splitSigOk := nil == err // Need the un-fixed up result to cross-check the recovery.
-	sigOk := splitSigOk
-	if tg.Type == typeEcdsaShitcoinVerify && sigOk {
-		// Special case: `s <= n/2` is only enforced in VerifyASN1Shitcoin.
-		//
-		// So force a failure and set the appropriate error if the signature
-		// is otherwise valid under standard semantics.
-		if sOk := s.IsGreaterThanHalfN() == 0; !sOk {
-			sigOk = false
-			err = errSIsTooLarge
-		}
-	}
+	sigOk = splitSigOk
 	require.EqualValues(t, !mustFail, sigOk, "split signature verification: %+v", tc.Flags)
 	if err != nil {
 		require.False(t, hasFlagValid)
@@ -560,7 +519,6 @@ func TestWycheproof(t *testing.T) {
 	t.Run("ECDH/WebCrypto", func(t *testing.T) { testWycheproofEcdh(t, fileEcdhWebCrypto) })
 	t.Run("ECDSA/Asn/SHA256", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaAsnSha256) })
 	t.Run("ECDSA/Asn/SHA512", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaAsnSha512) })
-	t.Run("ECDSA/Shitcoin", func(t *testing.T) { testWycheproofEcdsa(t, fileEcdsaShitcoin) })
 }
 
 func requireErrorOneOf(t *testing.T, err error, targets []error) {

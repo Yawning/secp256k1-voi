@@ -24,7 +24,7 @@ const (
 var (
 	errInvalidScalar = errors.New("secp256k1/secec/ecdsa: invalid scalar")
 	errInvalidDigest = errors.New("secp256k1/secec/ecdsa: invalid digest")
-	errInvalidRorS   = errors.New("secp256k1.secec.ecdsa: r or s is zero")
+	errInvalidRorS   = errors.New("secp256k1/secec/ecdsa: r or s is zero")
 	errRIsInfinity   = errors.New("secp256k1/secec/ecdsa: R is the point at infinity")
 	errVNeqR         = errors.New("secp256k1/secec/ecdsa: v does not equal r")
 
@@ -80,26 +80,6 @@ func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
 func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
 	r, s, err := ParseASN1Signature(sig)
 	if err != nil {
-		return false
-	}
-
-	return k.Verify(hash, r, s)
-}
-
-// VerifyASN1BIP0066 verifies the BIP-0066 encoded signature `sig` of
-// `hash`, using the PublicKey `k`, using the verification procedure
-// as specifed in SEC 1, Version 2.0, Section 4.1.4, with the additional
-// restriction that `s` MUST be less than or equal to `n / 2`.
-// Its return value records whether the signature is valid.
-//
-// Note: The signature MUST have the trailing `sighash` byte.
-func (k *PublicKey) VerifyASN1BIP0066(hash, sig []byte) bool {
-	r, s, err := parseASN1SignatureShitcoin(sig)
-	if err != nil {
-		return false
-	}
-
-	if s.IsGreaterThanHalfN() != 0 {
 		return false
 	}
 
@@ -216,7 +196,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 		// 2. Convert the field element xR to an integer xR using the
 		// conversion routine specified in Section 2.3.9.
 
-		rXBytes, rYIsOdd := splitUncompressedPoint(R.UncompressedBytes())
+		rXBytes, rYIsOdd := secp256k1.SplitUncompressedPoint(R.UncompressedBytes())
 
 		// 3. Set r = xR mod n. If r = 0, or optionally r fails to meet
 		// other publicly verifiable criteria (see below), return to Step 1.

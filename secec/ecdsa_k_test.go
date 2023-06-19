@@ -205,10 +205,6 @@ func testEcdsaK(t *testing.T) {
 		badSig, err := testKey.SignASN1(newBadReader(27), msg1Hash)
 		require.Nil(t, badSig, "SignASN1 - badReader")
 		require.ErrorIs(t, err, errEntropySource, "SignASN1 - badReader")
-
-		badSig, err = testKey.SignSchnorr(newBadReader(7), msg1Hash)
-		require.Nil(t, badSig, "SignSchnorr - badReader")
-		require.ErrorIs(t, err, errEntropySource, "SignSchnorr - badReader")
 	})
 
 	t.Run("RFC6979/SHA256/TestVectors", testRFC6979KAT)
