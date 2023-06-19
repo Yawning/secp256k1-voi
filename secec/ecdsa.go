@@ -32,8 +32,8 @@ var (
 	errRejectionSampling = errors.New("secp256k1/secec: failed rejection sampling")
 )
 
-// Sign signs signs `hash` (which should be the result of hashing a
-// larger message) using the PrivateKey `k`, using the signing procedure
+// Sign signs `hash` (which should be the result of hashing a larger
+// message) using the PrivateKey `k`, using the signing procedure
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // tuple `(r, s, recovery_id)`.
 //
@@ -45,8 +45,8 @@ func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp
 	return sign(rand, k, hash)
 }
 
-// SignASN1 signs signs `hash` (which should be the result of hashing a
-// larger message) using the PrivateKey `k`, using the signing procudure
+// SignASN1 signs `hash` (which should be the result of hashing a larger
+// message) using the PrivateKey `k`, using the signing procudure
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // ASN.1 encoded signature.
 //
