@@ -58,7 +58,7 @@ func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return buildASN1Signature(r, s), nil
+	return BuildASN1Signature(r, s), nil
 }
 
 // Verify verifies the `(r, s)` signature of `hash`, using the PublicKey

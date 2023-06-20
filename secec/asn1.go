@@ -106,7 +106,9 @@ func buildASN1PublicKey(pk *PublicKey) []byte {
 	return b.BytesOrPanic()
 }
 
-func buildASN1Signature(r, s *secp256k1.Scalar) []byte {
+// BuildASN1Signature serializes `(r, s)` into an ASN.1 encoded signature
+// as specified in SEC 1, Version 2.0, Appendix C.8.
+func BuildASN1Signature(r, s *secp256k1.Scalar) []byte {
 	var rBig, sBig big.Int
 	rBig.SetBytes(r.Bytes())
 	sBig.SetBytes(s.Bytes())
