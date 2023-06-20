@@ -274,6 +274,8 @@ func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 func NewSchnorrPublicKeyFromPoint(point *secp256k1.Point) (*SchnorrPublicKey, error) {
 	pt := secp256k1.NewPointFrom(point)
 	if pt.IsIdentity() != 0 {
+		// This could check before to save the copy on the fail case,
+		// but why would anyone pass in the point at infinity?
 		return nil, errAIsInfinity
 	}
 
@@ -292,7 +294,7 @@ func NewSchnorrPublicKeyFromPoint(point *secp256k1.Point) (*SchnorrPublicKey, er
 // to the ECDSA PrivateKey `sk`.
 func NewSchnorrPublicKeyFromECDSA(pk *secec.PublicKey) *SchnorrPublicKey {
 	// Can't fail, pk.Point is never identity.
-	pub, _ := NewSchnorrPublicKeyFromPoint(pk.Point())
+	pub, _ := NewSchnorrPublicKeyFromPoint(pk.Point()) // An extra copy :(
 	return pub
 }
 

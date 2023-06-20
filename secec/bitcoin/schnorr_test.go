@@ -73,11 +73,18 @@ func TestSchnorr(t *testing.T) {
 		_, err = PreHashSchnorrMessage("", []byte(testMessage))
 		require.Error(t, err, "PreHashSchnorrMessage - no domain sep")
 
+		require.False(t, priv.Equal(privNist), "priv.Equal(privNist)")
 		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
 
 		require.Panics(t, func() {
 			_, _ = priv.Sign(secec.RFC6979SHA256(), preHashedMsg)
 		})
+
+		_, err = NewSchnorrPrivateKey([]byte("super sekrit key"))
+		require.Error(t, err, "NewSchnorrPrivateKey(not a key)")
+
+		_, err = GenerateSchnorrKey(newBadReader(13))
+		require.Error(t, err, "GenerateSchnorrKey(badReader)")
 	})
 
 	t.Run("TestVectors", testSchnorrKAT)
@@ -204,9 +211,15 @@ func testSchnorrKAT(t *testing.T) {
 
 			sk, err := NewSchnorrPrivateKey(skBytes)
 			require.NoError(t, err, "NewSchnorrPrivateKey")
+			require.EqualValues(t, skBytes, sk.Bytes(), "sk.Bytes() == skBytes")
+			require.EqualValues(t, skBytes, sk.Scalar().Bytes(), "sk.Scalar().Bytes() == skBytes")
+			require.True(t, pk.Equal(sk.Public()), "pk.Equal(sk.Public())")
 
 			ecdsaSk, err := secec.NewPrivateKey(skBytes)
 			require.NoError(t, err, "NewPrivateKey - ECDSA")
+
+			derivedSk := NewSchnorrPrivateKeyFromECDSA(ecdsaSk)
+			require.True(t, sk.Equal(derivedSk))
 
 			derivedPk, err := NewSchnorrPublicKeyFromPoint(ecdsaSk.PublicKey().Point())
 			require.NoError(t, err, "NewSchnorrPublicKeyFromPoint")
