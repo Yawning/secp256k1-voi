@@ -153,24 +153,27 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 		return nil, errInvalidPrivateKey
 	}
 
-	return NewPrivateKeyFromScalar(s)
+	return newPrivateKeyFromScalar(s)
 }
 
 // NewPrivateKeyFromScalar checks that `s` is valid and returns a
 // PrivateKey.
 func NewPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
+	return newPrivateKeyFromScalar(secp256k1.NewScalarFrom(s))
+}
+
+func newPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
 	if s.IsZero() != 0 {
 		return nil, errInvalidPrivateKey
 	}
 
 	// Note: Caller ensures that s is in the correct range.
+	pt := secp256k1.NewIdentityPoint().ScalarBaseMult(s)
+	publicKey, _ := newPublicKeyFromPoint(pt) // Can't fail, pt can NEVER be inf
 	privateKey := &PrivateKey{
-		scalar: s,
-		publicKey: &PublicKey{
-			point: secp256k1.NewIdentityPoint().ScalarBaseMult(s),
-		},
+		scalar:    s,
+		publicKey: publicKey,
 	}
-	privateKey.publicKey.pointBytes = privateKey.publicKey.point.UncompressedBytes()
 
 	return privateKey, nil
 }
@@ -188,24 +191,21 @@ func NewPublicKey(key []byte) (*PublicKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("secp256k1/secec: invalid public key: %w", err)
 	}
-	if pt.IsIdentity() != 0 {
-		return nil, errAIsInfinity
-	}
 
-	return &PublicKey{
-		point:      pt,
-		pointBytes: pt.UncompressedBytes(),
-	}, nil
+	return newPublicKeyFromPoint(pt)
 }
 
 // NewPublicKeyFromPoint checks that `point` is valid, and returns a PublicKey.
 func NewPublicKeyFromPoint(point *secp256k1.Point) (*PublicKey, error) {
-	// This duplicates code from NewPublicKey to avoid an extra copy.
-	pt := secp256k1.NewPointFrom(point)
+	return newPublicKeyFromPoint(secp256k1.NewPointFrom(point))
+}
+
+func newPublicKeyFromPoint(pt *secp256k1.Point) (*PublicKey, error) {
 	if pt.IsIdentity() != 0 {
 		return nil, errAIsInfinity
 	}
 
+	// Note: Caller ensures that pt is on the curve.
 	return &PublicKey{
 		point:      pt,
 		pointBytes: pt.UncompressedBytes(),
