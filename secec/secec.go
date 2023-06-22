@@ -23,8 +23,9 @@ import (
 const PrivateKeySize = 32
 
 var (
-	errAIsInfinity      = errors.New("secp256k1/secec: public key is the point at infinity")
-	errAIsUninitialized = errors.New("secp256k1/secec: uninitialized public key")
+	errAIsInfinity       = errors.New("secp256k1/secec: public key is the point at infinity")
+	errAIsUninitialized  = errors.New("secp256k1/secec: uninitialized public key")
+	errInvalidPrivateKey = errors.New("secp256k1/secec: invalid private key")
 )
 
 // PrivateKey is a secp256k1 private key.
@@ -132,7 +133,7 @@ func GenerateKey() (*PrivateKey, error) {
 		return nil, err
 	}
 
-	return newPrivateKeyFromScalar(s)
+	return NewPrivateKeyFromScalar(s)
 }
 
 // NewPrivateKey checks that `key` is valid and returns a PrivateKey.
@@ -148,15 +149,20 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 	}
 
 	s, didReduce := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(key))
-	isZero := s.IsZero()
-	if (didReduce | isZero) != 0 {
-		return nil, errors.New("secp256k1/secec: invalid private key")
+	if didReduce != 0 {
+		return nil, errInvalidPrivateKey
 	}
 
-	return newPrivateKeyFromScalar(s)
+	return NewPrivateKeyFromScalar(s)
 }
 
-func newPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
+// NewPrivateKeyFromScalar checks that `s` is valid and returns a
+// PrivateKey.
+func NewPrivateKeyFromScalar(s *secp256k1.Scalar) (*PrivateKey, error) {
+	if s.IsZero() != 0 {
+		return nil, errInvalidPrivateKey
+	}
+
 	// Note: Caller ensures that s is in the correct range.
 	privateKey := &PrivateKey{
 		scalar: s,

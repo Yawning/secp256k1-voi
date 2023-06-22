@@ -46,7 +46,7 @@ func testEcdsaK(t *testing.T) {
 		// generated with the same k, over 2 different messages.
 
 		testKeyScalar := mustScalarFromHex(t, "000000000000000000000000"+"E5C4D0A8249A6F27E5E0C9D534F4DA15223F42AD")
-		testKey, err := newPrivateKeyFromScalar(testKeyScalar)
+		testKey, err := NewPrivateKeyFromScalar(testKeyScalar)
 		require.NoError(t, err, "newPrivateKeyFromScalar")
 
 		badKBytes := sha256.Sum256([]byte("chosen by fair dice roll. guaranteed to be random."))
@@ -100,7 +100,7 @@ func testEcdsaK(t *testing.T) {
 	t.Run("MitigateDebianAndSony", func(t *testing.T) {
 		// Use a different "test" key.
 		testKeyScalar := mustScalarFromHex(t, "000000000000000000000000"+"14B022E892CF8614A44557DB095C928DE9B89970")
-		testKey, err := newPrivateKeyFromScalar(testKeyScalar)
+		testKey, err := NewPrivateKeyFromScalar(testKeyScalar)
 		require.NoError(t, err, "newPrivateKeyFromScalar")
 
 		// Signature 1 (testKey, all 0 entropy, msg1)
@@ -143,7 +143,7 @@ func testEcdsaK(t *testing.T) {
 		testKeyScalar2Bytes := sha256.Sum256([]byte("MD_Update(&m,buf,j);  /* purify complains */"))
 		testKeyScalar2, err := secp256k1.NewScalarFromCanonicalBytes(&testKeyScalar2Bytes)
 		require.NoError(t, err, "NewScalarFromCanonicalBytes")
-		testKey2, err := newPrivateKeyFromScalar(testKeyScalar2)
+		testKey2, err := NewPrivateKeyFromScalar(testKeyScalar2)
 		require.NoError(t, err, "newPrivateKeyFromScalar")
 
 		// Signature 3 (testKey2, all 0 entropy, msg1)
@@ -191,7 +191,7 @@ func testEcdsaK(t *testing.T) {
 	testKeyScalarBytes := sha256.Sum256([]byte("It's a proprietary strategy. I can't go into it in great detail."))
 	testKeyScalar, err := secp256k1.NewScalarFromCanonicalBytes(&testKeyScalarBytes)
 	require.NoError(t, err, "NewScalarFromCanonicalBytes")
-	testKey, err := newPrivateKeyFromScalar(testKeyScalar)
+	testKey, err := NewPrivateKeyFromScalar(testKeyScalar)
 	require.NoError(t, err, "newPrivateKeyFromScalar")
 
 	t.Run("MitigateDebianAndSony/BadRng", func(t *testing.T) {
