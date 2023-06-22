@@ -3,7 +3,6 @@ module gitlab.com/yawning/secp256k1-voi
 go 1.20
 
 require (
-	filippo.io/bigmod v0.0.1
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.9.0
 )

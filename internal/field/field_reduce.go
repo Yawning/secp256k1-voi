@@ -5,36 +5,15 @@
 package field
 
 import (
-	"encoding/binary"
-	"math/big"
 	"math/bits"
-
-	"filippo.io/bigmod"
 
 	fiat "gitlab.com/yawning/secp256k1-voi/internal/fiat/secp256k1montgomery"
 	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
 var (
-	pMod = func() *bigmod.Modulus {
-		var b [32]byte
-		binary.BigEndian.PutUint64(b[0:8], mSat[3])
-		binary.BigEndian.PutUint64(b[8:16], mSat[2])
-		binary.BigEndian.PutUint64(b[16:24], mSat[1])
-		binary.BigEndian.PutUint64(b[24:32], mSat[0])
-
-		return bigmod.NewModulusFromBig((&big.Int{}).SetBytes(b[:]))
-	}()
-
-	// Use 2^512 + 1 for wideMod because we need to handle inputs up to
-	// 2^512-1, and all `Modulus` need to be odd.
-	wideMod = func() *bigmod.Modulus {
-		return bigmod.NewModulusFromBig(
-			(&big.Int{}).SetBytes(
-				helpers.MustBytesFromHex("0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"),
-			),
-		)
-	}()
+	scTwo192 = NewElementFromCanonicalHex("0x1000000000000000000000000000000000000000000000000") // 2^192 mod m
+	scTwo384 = NewElementFromCanonicalHex("0x1000003d100000000000000000000000000000000")         // 2^384 mod m (from sage)
 )
 
 // SetWideBytes sets `fe = src % p`, where `src` is a big-endian encoding
@@ -43,11 +22,10 @@ var (
 // this.  In practice, p is close enough to `2^256-1` such that this is
 // largely unneccesary.
 func (fe *Element) SetWideBytes(src []byte) *Element {
-	// This was 14.3.4 "Reduction methods for moduli of special
-	// form" from "Handbook of Applied Cryptography" by Menezes,
-	// Oorschot, and Vanstone, but using library code spooks me
-	// less, especially if it is a re-export from the standard
-	// library.
+	// An alternative way to do this would be something like
+	// 14.3.4 "Reduction methods for moduli of special form" from
+	// "Handbook of Applied Cryptography" by Menezes, Oorschot, and
+	// Vanstone.
 	//
 	// The existence of this routine is stupid, and it is only
 	// for h2c.
@@ -55,26 +33,46 @@ func (fe *Element) SetWideBytes(src []byte) *Element {
 	sLen := len(src)
 	switch {
 	case sLen < ElementSize:
+		// Ironically this is implemented as "setShortBytes", but
+		// aside from as a helper for our wide-reduction, there is
+		// no reason to ever call it.
 		panic("secp256k1/internal/field: wide element too short")
 	case sLen == ElementSize:
 		// When possible, call the simpler routine.
 		fe.SetBytes((*[ElementSize]byte)(src))
 		return fe
 	case sLen <= WideElementSize:
-		n, err := bigmod.NewNat().SetBytes(src[:], wideMod)
-		if err != nil {
-			// This can NEVER happen as wideMod is greater than
-			// the largest number representable in 64-bytes.
-			panic("secp256k1/internal/field: failed to deserialize wide element: " + err.Error())
-		}
+		// Use Frank Denis' trick, as documented by Filippo Valsorda
+		// at https://words.filippo.io/dispatches/wide-reduction/
+		//
+		// "I represent the value as a+b*2^192+c*2^384"
 
-		// Aw, Nat.Mod isn't aliasing safe.
-		out := bigmod.NewNat().Mod(n, pMod)
+		// First ensure that we are working with a 512-bit big-endian value.
+		var src512 [WideElementSize]byte
+		copy(src512[WideElementSize-sLen:], src)
 
-		return fe.MustSetCanonicalBytes((*[ElementSize]byte)(out.Bytes(pMod)))
+		fe.setShortBytes(src512[40:])                  // a
+		b := NewElement().setShortBytes(src512[16:40]) // b
+		c := NewElement().setShortBytes(src512[:16])   // c
+		fe.Add(fe, b.Multiply(b, scTwo192))
+		fe.Add(fe, c.Multiply(c, scTwo384))
+
+		return fe
 	default:
 		panic("secp256k1/internal/field: wide element too large")
 	}
+}
+
+func (fe *Element) setShortBytes(src []byte) *Element {
+	sLen := len(src)
+	if sLen > ElementSize {
+		panic("internal/field: short element too wide")
+	}
+
+	var src256 [ElementSize]byte
+	copy(src256[ElementSize-sLen:], src)
+
+	return fe.MustSetCanonicalBytes(&src256)
 }
 
 func reduceSaturated(dst, src *[4]uint64) uint64 {
