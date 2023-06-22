@@ -143,10 +143,10 @@ func NewSchnorrPrivateKey(key []byte) (*SchnorrPrivateKey, error) {
 	return NewSchnorrPrivateKeyFromECDSA(ecdsaPriv), nil
 }
 
-// GenerateSchnorrKey generates a new SchnorrPrivateKey from `rand`.
-// If `rand` is nil, [crypto/rand.Reader] will be used.
-func GenerateSchnorrKey(rand io.Reader) (*SchnorrPrivateKey, error) {
-	ecdsaPriv, err := secec.GenerateKey(rand)
+// GenerateSchnorrKey generates a new SchnorrPrivateKey,
+// using [crypto/rand.Reader] as the entropy source.
+func GenerateSchnorrKey() (*SchnorrPrivateKey, error) {
+	ecdsaPriv, err := secec.GenerateKey()
 	if err != nil {
 		return nil, err
 	}

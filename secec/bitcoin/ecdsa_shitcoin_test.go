@@ -14,7 +14,7 @@ import (
 )
 
 func TestECDSA(t *testing.T) {
-	priv, err := secec.GenerateKey(nil)
+	priv, err := secec.GenerateKey()
 	require.NoError(t, err, "GenerateKey")
 
 	pub := priv.PublicKey()

@@ -30,7 +30,7 @@ func TestSchnorr(t *testing.T) {
 	pubNist := privNist.Public()
 
 	t.Run("Integration", func(t *testing.T) {
-		priv, err := GenerateSchnorrKey(rand.Reader)
+		priv, err := GenerateSchnorrKey()
 		require.NoError(t, err, "GenerateSchnorrKey")
 
 		pub := priv.PublicKey()
@@ -82,9 +82,6 @@ func TestSchnorr(t *testing.T) {
 
 		_, err = NewSchnorrPrivateKey([]byte("super sekrit key"))
 		require.Error(t, err, "NewSchnorrPrivateKey(not a key)")
-
-		_, err = GenerateSchnorrKey(newBadReader(13))
-		require.Error(t, err, "GenerateSchnorrKey(badReader)")
 	})
 
 	t.Run("TestVectors", testSchnorrKAT)
@@ -104,7 +101,7 @@ func TestSchnorr(t *testing.T) {
 	})
 
 	t.Run("BadRNG", func(t *testing.T) {
-		priv, err := GenerateSchnorrKey(rand.Reader)
+		priv, err := GenerateSchnorrKey()
 		require.NoError(t, err, "GenerateSchnorrKey")
 
 		badSig, err := priv.Sign(newBadReader(7), []byte("any message"))
@@ -120,7 +117,7 @@ func BenchmarkSchnorr(b *testing.B) {
 	)
 	require.NoError(b, err, "PreHashSchnorrMessage")
 
-	randomPriv, err := GenerateSchnorrKey(rand.Reader)
+	randomPriv, err := GenerateSchnorrKey()
 	require.NoError(b, err)
 
 	randomPub := randomPriv.PublicKey()

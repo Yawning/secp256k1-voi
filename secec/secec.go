@@ -10,11 +10,10 @@ package secec
 import (
 	"bytes"
 	"crypto"
-	csrand "crypto/rand"
+	"crypto/rand"
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"io"
 
 	"gitlab.com/yawning/secp256k1-voi"
 	"gitlab.com/yawning/secp256k1-voi/internal/disalloweq"
@@ -125,14 +124,10 @@ func (k *PublicKey) IsYOdd() bool {
 	return yIsOdd != 0
 }
 
-// GenerateKey generates a new PrivateKey from `rand`.  If `rand` is nil,
-// [crypto/rand.Reader] will be used.
-func GenerateKey(rand io.Reader) (*PrivateKey, error) {
-	if rand == nil {
-		rand = csrand.Reader
-	}
-
-	s, err := sampleRandomScalar(rand)
+// GenerateKey generates a new PrivateKey, using [crypto/rand.Reader]
+// as the entropy source.
+func GenerateKey() (*PrivateKey, error) {
+	s, err := sampleRandomScalar(rand.Reader)
 	if err != nil {
 		return nil, err
 	}

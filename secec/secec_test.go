@@ -35,11 +35,11 @@ func TestSecec(t *testing.T) {
 	// Basic integration tests.  Wycheproof will take care of most of
 	// the in-depth testing.
 	t.Run("ECDH", func(t *testing.T) {
-		alicePriv, err := GenerateKey(rand.Reader)
+		alicePriv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey - Alice")
 		alicePubBytes := alicePriv.PublicKey().Bytes()
 
-		bobPriv, err := GenerateKey(rand.Reader)
+		bobPriv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey - Bob")
 		bobPubBytes := bobPriv.PublicKey().Bytes()
 
@@ -58,7 +58,7 @@ func TestSecec(t *testing.T) {
 		require.EqualValues(t, aliceX, bobX, "shared secrets should match")
 	})
 	t.Run("ECDSA", func(t *testing.T) {
-		priv, err := GenerateKey(rand.Reader)
+		priv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey")
 
 		pub := priv.PublicKey()
@@ -107,7 +107,7 @@ func TestSecec(t *testing.T) {
 	})
 	t.Run("ECDSA/Recover", func(t *testing.T) {
 		// TODO: It would be nice to find test vectors for this...
-		priv, err := GenerateKey(rand.Reader)
+		priv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey")
 
 		r, s, recoveryID, err := priv.Sign(rand.Reader, testMessageHash)
@@ -130,23 +130,6 @@ func TestSecec(t *testing.T) {
 		require.ErrorIs(t, err, errInvalidDigest, "RecoverPublicKey - Truncated h")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
-
-	t.Run("PrivateKey/Generate", func(t *testing.T) {
-		priv, err := GenerateKey(nil)
-		require.NotNil(t, priv, "GenerateKey - nil")
-		require.NoError(t, err, "GenerateKey - nil")
-
-		// All-zero entropy source should cause the rejection sampling
-		// to give up, because it keeps generating scalars that are 0.
-		priv, err = GenerateKey(newZeroReader())
-		require.Nil(t, priv, "GenerateKey - zeroReader")
-		require.ErrorIs(t, err, errRejectionSampling, "GenerateKey - zeroReader")
-
-		// Broken (non-functional) entropy source should just fail.
-		priv, err = GenerateKey(newBadReader(13))
-		require.Nil(t, priv, "GenerateKey - badReader")
-		require.ErrorIs(t, err, errEntropySource, "GenerateKey - badReader")
-	})
 	t.Run("PrivateKey/Malformed", func(t *testing.T) {
 		for _, v := range [][]byte{
 			[]byte("trucated"),
@@ -177,7 +160,7 @@ func TestSecec(t *testing.T) {
 			i               int
 		)
 		for gotOdd == false && gotEven == false {
-			priv, err := GenerateKey(nil)
+			priv, err := GenerateKey()
 			require.NoError(t, err, "GenerateKey")
 
 			pub := priv.PublicKey()
@@ -195,14 +178,26 @@ func TestSecec(t *testing.T) {
 			new(PublicKey).IsYOdd()
 		}, "uninitialized.IsYOdd()")
 	})
+	t.Run("Internal/sampleRandomScalar", func(t *testing.T) {
+		// All-zero entropy source should cause the rejection sampling
+		// to give up, because it keeps generating scalars that are 0.
+		sc, err := sampleRandomScalar(newZeroReader())
+		require.Nil(t, sc, "sampleRandomScalar - zeroReader")
+		require.ErrorIs(t, err, errRejectionSampling, "sampleRandomScalar - zeroReader")
+
+		// Broken (non-functional) entropy source should just fail.
+		sc, err = sampleRandomScalar(newBadReader(13))
+		require.Nil(t, sc, "sampleRandomScalar - badReader")
+		require.ErrorIs(t, err, errEntropySource, "sampleRandomScalar - badReader")
+	})
 }
 
 func BenchmarkSecec(b *testing.B) {
-	randomPriv, err := GenerateKey(rand.Reader)
+	randomPriv, err := GenerateKey()
 	require.NoError(b, err)
 	randomPrivateBytes := randomPriv.Scalar().Bytes()
 
-	randomPriv2, err := GenerateKey(rand.Reader)
+	randomPriv2, err := GenerateKey()
 	require.NoError(b, err)
 	randomPub := randomPriv2.PublicKey()
 	randomPublicBytes := randomPub.Bytes()
@@ -218,7 +213,7 @@ func BenchmarkSecec(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := GenerateKey(rand.Reader)
+			_, err := GenerateKey()
 			require.NoError(b, err)
 		}
 	})
