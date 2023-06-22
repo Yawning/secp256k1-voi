@@ -202,7 +202,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 		// other publicly verifiable criteria (see below), return to Step 1.
 
 		var didReduce uint64
-		r, didReduce = secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(rXBytes))
+		r, didReduce = secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(rXBytes))
 		if r.IsZero() != 0 {
 			// This is essentially totally untestable since the odds
 			// of generating `r = 0` is astronomically unlikely.
@@ -294,7 +294,7 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	// 7. Set v = xR mod n.
 
 	xRBytes, _ := R.XBytes() // Can't fail, R != Inf.
-	v, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(xRBytes))
+	v, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(xRBytes))
 
 	// 8. Compare v and r — if v = r, output “valid”, and if
 	// v != r, output “invalid”.
@@ -318,29 +318,7 @@ func hashToScalar(hash []byte) (*secp256k1.Scalar, error) {
 
 	// TLDR; The left-most Ln-bits of hash.
 	tmp := (*[secp256k1.ScalarSize]byte)(hash[:secp256k1.ScalarSize])
-	s, _ := secp256k1.NewScalar().SetBytes(tmp) // Reduction info unneeded.
-	return s, nil
-}
-
-func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
-	var (
-		tmp    [secp256k1.ScalarSize]byte
-		sLen   = len(sBytes)
-		offset = 0
-	)
-	if sLen > secp256k1.ScalarSize || sLen == 0 {
-		return nil, errInvalidScalar
-	}
-	if sLen < secp256k1.ScalarSize {
-		offset = secp256k1.ScalarSize - sLen
-	}
-	copy(tmp[offset:], sBytes)
-
-	s, err := secp256k1.NewScalarFromCanonicalBytes(&tmp)
-	if err != nil {
-		return nil, errInvalidScalar
-	}
-
+	s, _ := secp256k1.NewScalarFromBytes(tmp) // Reduction info unneeded.
 	return s, nil
 }
 
@@ -395,7 +373,7 @@ func sampleRandomScalar(rand io.Reader) (*secp256k1.Scalar, error) {
 		}
 
 		_, didReduce := s.SetBytes(&tmp)
-		if didReduce == 0 && s.IsZero() == 0 {
+		if didReduce == 0 && s.IsZero() == 0 { // Short circuit reject is ok.
 			return s, nil
 		}
 	}

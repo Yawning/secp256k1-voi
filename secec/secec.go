@@ -159,7 +159,7 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 		return nil, errors.New("secp256k1/secec: invalid private key size")
 	}
 
-	s, didReduce := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(key))
+	s, didReduce := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(key))
 	if didReduce != 0 {
 		return nil, errInvalidPrivateKey
 	}
@@ -198,7 +198,7 @@ func NewPublicKey(key []byte) (*PublicKey, error) {
 	// but way too much of the shitcoin ecosystem supports compressed,
 	// so might as well support all the formats, and explicitly just
 	// reject the identity encoding.
-	pt, err := secp256k1.NewIdentityPoint().SetBytes(key)
+	pt, err := secp256k1.NewPointFromBytes(key)
 	if err != nil {
 		return nil, fmt.Errorf("secp256k1/secec: invalid public key: %w", err)
 	}

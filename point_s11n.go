@@ -263,7 +263,7 @@ func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	xFe.ConditionalSelect(xFe, xFeN, xGtN)
 
 	// Sanity check.
-	sc, didReduce := NewScalar().SetBytes((*[ScalarSize]byte)(xFe.Bytes()))
+	sc, didReduce := NewScalarFromBytes((*[ScalarSize]byte)(xFe.Bytes()))
 	if (helpers.Uint64Equal(didReduce, xGtN) & sc.Equal(xScalar)) == 0 {
 		return nil, errors.New("secp256k1: invalid x-coordinate order-bit")
 	}
@@ -279,7 +279,7 @@ func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 }
 
 // SplitUncompressedPoint splits the SEC 1, Verson 2.0, Section 2.3.3
-// uncompressed encoding of a point into the 256-bit big-endian byte
+// uncompressed encoding of a point into the 32-byte big-endian byte
 // encoding of the x-coordinate, and a uint64 indicating if the
 // y-coordinate is odd.
 func SplitUncompressedPoint(ptBytes []byte) ([]byte, uint64) {

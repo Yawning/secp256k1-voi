@@ -219,8 +219,16 @@ func NewScalarFromUint64(l0 uint64) *Scalar {
 	return NewScalar().uncheckedSetSaturated(&[4]uint64{l0, 0, 0, 0})
 }
 
+// NewScalarFromBytes creates a new Scalar from the 32-byte big-endian
+// encoding of `s`, and returns `s, 0`.  If `src` is not a canonical
+// encoding of `s`, `src` is reduced modulo n, and NewScalarFromBytes
+// returns `s, 1`.
+func NewScalarFromBytes(src *[ScalarSize]byte) (*Scalar, uint64) {
+	return NewScalar().SetBytes(src)
+}
+
 // NewScalarFromCanonicalBytes creates a new Scalar from the canonical
-// big-endian byte representation.
+// 32-byte big-endian byte representation.
 func NewScalarFromCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
 	s, err := NewScalar().SetCanonicalBytes(src)
 	if err != nil {

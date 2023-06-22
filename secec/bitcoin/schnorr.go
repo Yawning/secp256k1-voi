@@ -336,7 +336,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 
 	// Let k' = int(rand) mod n[13].
 
-	kPrime, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(rand))
+	kPrime, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(rand))
 
 	// Fail if k' = 0.
 
@@ -358,7 +358,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 	// Let e = int(hashBIP0340/challenge(bytes(R) || bytes(P) || m)) mod n.
 
 	eBytes := schnorrTaggedHash(schnorrTagChallenge, rXBytes, pBytes, msg[:])
-	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
+	e, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(eBytes))
 
 	// Let sig = bytes(R) || bytes((k + ed) mod n).
 
@@ -435,7 +435,7 @@ func parseSchnorrSignature(pkXBytes, msg, sig []byte) (bool, *secp256k1.Scalar, 
 	// Let e = int(hashBIP0340/challenge(bytes(r) || bytes(P) || m)) mod n.
 
 	eBytes := schnorrTaggedHash(schnorrTagChallenge, sigRXBytes, pkXBytes, msg)
-	e, _ := secp256k1.NewScalar().SetBytes((*[secp256k1.ScalarSize]byte)(eBytes))
+	e, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(eBytes))
 
 	return true, s, e, sigRXBytes
 }

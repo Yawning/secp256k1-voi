@@ -121,3 +121,20 @@ func BuildASN1Signature(r, s *secp256k1.Scalar) []byte {
 
 	return b.BytesOrPanic()
 }
+
+func bytesToCanonicalScalar(sBytes []byte) (*secp256k1.Scalar, error) {
+	sLen := len(sBytes)
+	if sLen > secp256k1.ScalarSize || sLen == 0 {
+		return nil, errInvalidScalar
+	}
+
+	var tmp [secp256k1.ScalarSize]byte
+	copy(tmp[secp256k1.ScalarSize-sLen:], sBytes)
+
+	s, err := secp256k1.NewScalarFromCanonicalBytes(&tmp)
+	if err != nil {
+		return nil, errInvalidScalar
+	}
+
+	return s, nil
+}
