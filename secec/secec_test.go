@@ -170,6 +170,8 @@ func TestSecec(t *testing.T) {
 			gotEven = gotEven || (!isOdd)
 
 			require.Equal(t, isOdd, pub.IsYOdd())
+			require.Equal(t, pub.Point().CompressedBytes(), pub.CompressedBytes())
+
 			i++
 		}
 		t.Logf("%d iters to see both odd and even Y", i+1)

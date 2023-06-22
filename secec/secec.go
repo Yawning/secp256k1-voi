@@ -93,6 +93,17 @@ func (k *PublicKey) Bytes() []byte {
 	return bytes.Clone(k.pointBytes)
 }
 
+// CompressedBytes returns a copy of the compressed encoding of the public
+// key.
+func (k *PublicKey) CompressedBytes() []byte {
+	xBytes, yIsOdd := secp256k1.SplitUncompressedPoint(k.pointBytes)
+	buf := make([]byte, 0, secp256k1.CompressedPointSize)
+	buf = append(buf, byte(yIsOdd)+0x02) // 0x02 -> even, 0x03 -> odd
+	buf = append(buf, xBytes...)
+
+	return buf
+}
+
 // ASN1Bytes returns a copy of the ASN.1 encoding of the public key,
 // as specified in SEC 1, Version 2.0, Appendix C.3.
 func (k *PublicKey) ASN1Bytes() []byte {
@@ -101,7 +112,7 @@ func (k *PublicKey) ASN1Bytes() []byte {
 
 // Point returns a copy of the point underlying `k`.
 func (k *PublicKey) Point() *secp256k1.Point {
-	return secp256k1.NewIdentityPoint().Set(k.point)
+	return secp256k1.NewPointFrom(k.point)
 }
 
 // Equal returns whether `x` represents the same public key as `k`.
