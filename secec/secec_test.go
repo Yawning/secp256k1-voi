@@ -82,11 +82,11 @@ func TestSecec(t *testing.T) {
 		ok = pub.VerifyASN1(testMessageHash[:5], sig)
 		require.False(t, ok, "VerifyASN1 - Truncated h")
 
-		r, s, _, err := priv.Sign(rand.Reader, testMessageHash)
-		require.NoError(t, err, "Sign")
+		r, s, _, err := priv.SignRaw(rand.Reader, testMessageHash)
+		require.NoError(t, err, "SignRaw")
 
-		ok = pub.Verify(testMessageHash, r, s)
-		require.True(t, ok, "Verify")
+		ok = pub.VerifyRaw(testMessageHash, r, s)
+		require.True(t, ok, "VerifyRaw")
 
 		compactSig := BuildCompactSignature(r, s)
 		compR, compS, err := ParseCompactSignature(compactSig)
@@ -125,8 +125,8 @@ func TestSecec(t *testing.T) {
 		priv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey")
 
-		r, s, recoveryID, err := priv.Sign(rand.Reader, testMessageHash)
-		require.NoError(t, err, "Sign")
+		r, s, recoveryID, err := priv.SignRaw(rand.Reader, testMessageHash)
+		require.NoError(t, err, "SignRaw")
 
 		q, err := RecoverPublicKey(testMessageHash, r, s, recoveryID)
 		require.NoError(t, err, "RecoverPublicKey")
@@ -222,7 +222,7 @@ func BenchmarkSecec(b *testing.B) {
 	randomSig, err := randomPriv2.SignASN1(rand.Reader, testMessageHash)
 	require.NoError(b, err)
 
-	randomR, randomS, randomRecID, err := randomPriv2.Sign(rand.Reader, testMessageHash)
+	randomR, randomS, randomRecID, err := randomPriv2.SignRaw(rand.Reader, testMessageHash)
 	require.NoError(b, err)
 
 	b.Run("GenerateKey", func(b *testing.B) {

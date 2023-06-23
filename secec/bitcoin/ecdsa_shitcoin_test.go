@@ -22,7 +22,7 @@ func TestECDSA(t *testing.T) {
 	msgHash := sha256.Sum256([]byte(testMessage))
 	hBytes := msgHash[:]
 
-	r, s, _, err := priv.Sign(nil, hBytes)
+	r, s, _, err := priv.SignRaw(nil, hBytes)
 	require.NoError(t, err, "Sign")
 
 	// I have no idea what this sighash thing is, except that the

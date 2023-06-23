@@ -54,18 +54,19 @@ func testEcdsaK(t *testing.T) {
 		// Signature 1 (testKey, badK, msg1)
 		//
 		// Note: Coincidentally generating this requires also not doing
-		// the condititional negate since s > n/2.
+		// the condititional negate since s > n/2.  This doesn't matter
+		// since the adversary is capable of negating s as required.
 
 		r1 := mustScalarFromHex(t, "317365e5fada9ddf645d224952c398b3bfa5dcb4d11803213ee6565639ad25be")
 		s1 := mustScalarFromHex(t, "c69a9505efb9a417b5f59f62ad7cd8140947b2e2189fb7ef111a8206d2ed8aa5")
-		sigOk := testKey.PublicKey().Verify(msg1Hash, r1, s1)
+		sigOk := testKey.PublicKey().VerifyRaw(msg1Hash, r1, s1)
 		require.True(t, sigOk, "sig1 ok")
 
 		// Signature 2 (testKey, badK, msg2)
 
 		r2 := mustScalarFromHex(t, "317365e5fada9ddf645d224952c398b3bfa5dcb4d11803213ee6565639ad25be")
 		s2 := mustScalarFromHex(t, "14577cbf24e320e45c14efe63b4190e2e00f9936102f00d67cb5e79113ef5a9b")
-		sigOk = testKey.PublicKey().Verify(msg2Hash, r2, s2)
+		sigOk = testKey.PublicKey().VerifyRaw(msg2Hash, r2, s2)
 		require.True(t, sigOk, "sig2 ok")
 
 		// So the adversary has (msg1, r1, s2), and (msg2, r2, s2).
@@ -108,22 +109,22 @@ func testEcdsaK(t *testing.T) {
 		// Do it twice, to verify that signatures with no entropy are
 		// deterministic.
 
-		r1, s1, _, err := testKey.Sign(newZeroReader(), msg1Hash)
-		require.NoError(t, err, "k1.Sign(zeroReader, msg1)")
-		sigOk := testKey.PublicKey().Verify(msg1Hash, r1, s1)
+		r1, s1, _, err := testKey.SignRaw(newZeroReader(), msg1Hash)
+		require.NoError(t, err, "k1.SignRaw(zeroReader, msg1)")
+		sigOk := testKey.PublicKey().VerifyRaw(msg1Hash, r1, s1)
 		require.True(t, sigOk, "sig1 ok")
 
-		r1check, s1check, _, err := testKey.Sign(newZeroReader(), msg1Hash)
-		require.NoError(t, err, "Sign(zeroReader, msg1) - again")
+		r1check, s1check, _, err := testKey.SignRaw(newZeroReader(), msg1Hash)
+		require.NoError(t, err, "SignRaw(zeroReader, msg1) - again")
 
 		require.EqualValues(t, r1.Bytes(), r1check.Bytes(), "r1 != r1check")
 		require.EqualValues(t, s1.Bytes(), s1check.Bytes(), "s1 != s1check")
 
 		// Signature 2 (testKey, all 0 entropy, msg2)
 
-		r2, s2, _, err := testKey.Sign(newZeroReader(), msg2Hash)
-		require.NoError(t, err, "k1.Sign(zeroReader, msg2)")
-		sigOk = testKey.PublicKey().Verify(msg2Hash, r2, s2)
+		r2, s2, _, err := testKey.SignRaw(newZeroReader(), msg2Hash)
+		require.NoError(t, err, "k1.SignRaw(zeroReader, msg2)")
+		sigOk = testKey.PublicKey().VerifyRaw(msg2Hash, r2, s2)
 		require.True(t, sigOk, "sig2 ok")
 
 		// The mitigation used is to use a CSPRNG seeded with the
@@ -148,9 +149,9 @@ func testEcdsaK(t *testing.T) {
 
 		// Signature 3 (testKey2, all 0 entropy, msg1)
 
-		r3, s3, _, err := testKey2.Sign(newZeroReader(), msg1Hash)
+		r3, s3, _, err := testKey2.SignRaw(newZeroReader(), msg1Hash)
 		require.NoError(t, err, "k2.Sign(zeroReader, msg1)")
-		sigOk = testKey2.PublicKey().Verify(msg1Hash, r3, s3)
+		sigOk = testKey2.PublicKey().VerifyRaw(msg1Hash, r3, s3)
 		require.True(t, sigOk, "sig3 ok")
 
 		// Likewise, even with no entropy, using a different private key
@@ -160,9 +161,9 @@ func testEcdsaK(t *testing.T) {
 
 		// Signature 4 (testKey, actual entropy, msg1)
 
-		r4, s4, _, err := testKey.Sign(rand.Reader, msg1Hash)
+		r4, s4, _, err := testKey.SignRaw(rand.Reader, msg1Hash)
 		require.NoError(t, err, "k1.Sign(rand.Reader, msg1")
-		sigOk = testKey.PublicKey().Verify(msg1Hash, r4, s4)
+		sigOk = testKey.PublicKey().VerifyRaw(msg1Hash, r4, s4)
 		require.True(t, sigOk, "sig4 ok")
 
 		require.NotEqualValues(t, r1.Bytes(), r4.Bytes(), "r1 != r4")
@@ -174,9 +175,9 @@ func testEcdsaK(t *testing.T) {
 
 		// Signature 5 (testKey, no entropy source specified, msg1)
 
-		r5, s5, _, err := testKey.Sign(nil, msg1Hash)
+		r5, s5, _, err := testKey.SignRaw(nil, msg1Hash)
 		require.NoError(t, err, "k1.Sign(nil, msg1")
-		sigOk = testKey.PublicKey().Verify(msg1Hash, r5, s5)
+		sigOk = testKey.PublicKey().VerifyRaw(msg1Hash, r5, s5)
 		require.True(t, sigOk, "sig5 ok")
 
 		require.NotEqualValues(t, r1.Bytes(), r5.Bytes(), "r1 != r5")

@@ -32,16 +32,15 @@ var (
 	errRejectionSampling = errors.New("secp256k1/secec: failed rejection sampling")
 )
 
-// Sign signs `hash` (which should be the result of hashing a larger
+// SignRaw signs `hash` (which should be the result of hashing a larger
 // message) using the PrivateKey `k`, using the signing procedure
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // tuple `(r, s, recovery_id)`.
 //
 // Notes: If `rand` is nil, the [crypto/rand.Reader] will be used.
 // `s` will always be less than or equal to `n / 2`.  `recovery_id`
-// will always be in the range `[0, 3]`.  Adding `27`, `31`, or the
-// EIP-155 nonsense is left to the caller.
-func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
+// will always be in the range `[0, 3]`.
+func (k *PrivateKey) SignRaw(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
 	return sign(rand, k, hash)
 }
 
@@ -53,7 +52,7 @@ func (k *PrivateKey) Sign(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp
 // Note: If `rand` is nil, the [crypto/rand.Reader] will be used. `s`
 // will always be less than or equal to `n / 2`.
 func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
-	r, s, _, err := k.Sign(rand, hash)
+	r, s, _, err := k.SignRaw(rand, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +60,11 @@ func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 	return BuildASN1Signature(r, s), nil
 }
 
-// Verify verifies the `(r, s)` signature of `hash`, using the PublicKey
-// `k`, using the verification procedure as specified in SEC 1,
-// Version 2.0, Section 4.1.4.  Its return value records whether the
-// signature is valid.
-func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
+// VerifyRaw verifies the `(r, s)` signature of `hash`, using the
+// PublicKey `k`, using the verification procedure as specified in
+// SEC 1, Version 2.0, Section 4.1.4.  Its return value records
+// whether the signature is valid.
+func (k *PublicKey) VerifyRaw(hash []byte, r, s *secp256k1.Scalar) bool {
 	return nil == verify(k, hash, r, s)
 }
 
@@ -83,7 +82,7 @@ func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
 		return false
 	}
 
-	return k.Verify(hash, r, s)
+	return k.VerifyRaw(hash, r, s)
 }
 
 // RecoverPublicKey recovers the public key from the signature

@@ -25,5 +25,5 @@ func VerifyASN1(k *secec.PublicKey, hash, sig []byte) bool {
 		return false
 	}
 
-	return k.Verify(hash, r, s)
+	return k.VerifyRaw(hash, r, s)
 }
