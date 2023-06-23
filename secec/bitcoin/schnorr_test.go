@@ -71,7 +71,7 @@ func TestSchnorr(t *testing.T) {
 		require.False(t, ok, "VerifySelf - Corrupted msg")
 
 		_, err = PreHashSchnorrMessage("", []byte(testMessage))
-		require.Error(t, err, "PreHashSchnorrMessage - no domain sep")
+		require.ErrorIs(t, err, errInvalidDomainSep, "PreHashSchnorrMessage - no domain sep")
 
 		require.False(t, priv.Equal(privNist), "priv.Equal(privNist)")
 		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
@@ -89,7 +89,7 @@ func TestSchnorr(t *testing.T) {
 	t.Run("PublicKey/Malformed", func(t *testing.T) {
 		k, err := NewSchnorrPublicKey([]byte{0x45, 0x45, 0x45, 0x45})
 		require.Nil(t, k, "NewSchnorrPublicKey - truncated")
-		require.Error(t, err, "NewSchnorrPublicKey - truncated")
+		require.ErrorIs(t, err, errInvalidPublicKey, "NewSchnorrPublicKey - truncated")
 
 		k, err = NewSchnorrPublicKeyFromPoint(secp256k1.NewIdentityPoint())
 		require.Nil(t, k, "NewSchnorrPublicKeyFromPoint - identity")

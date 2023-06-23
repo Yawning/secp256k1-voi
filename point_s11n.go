@@ -55,9 +55,10 @@ var (
 	// feN is the constant `n`, part of the curve parameters.
 	feN = field.NewElement().MustSetCanonicalBytes((*[field.ElementSize]byte)(nBytes))
 
-	errPointNotOnCurve = errors.New("secp256k1: point not on curve")
-	errInvalidEncoding = errors.New("secp256k1: invalid point encoding")
-	errInvalidPrefix   = errors.New("secp256k1: invalid encoded point prefix")
+	errPointNotOnCurve   = errors.New("secp256k1: point not on curve")
+	errInvalidEncoding   = errors.New("secp256k1: invalid point encoding")
+	errInvalidPrefix     = errors.New("secp256k1: invalid encoded point prefix")
+	errInvalidRecoveryID = errors.New("secp256k1: invalid recovery ID")
 )
 
 // UncompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
@@ -243,7 +244,7 @@ func NewPointFromBytes(src []byte) (*Point, error) {
 // the x-coordinate, and a "recovery ID" in the range `[0,3]`.
 func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	if recoveryID >= 4 {
-		return nil, errors.New("secp256k1: invalid recovery ID")
+		return nil, errInvalidRecoveryID
 	}
 
 	// The 0th bit indicates if the y-coordinate was odd.
@@ -267,7 +268,7 @@ func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	// Sanity check.
 	sc, didReduce := NewScalarFromBytes((*[ScalarSize]byte)(xFe.Bytes()))
 	if (helpers.Uint64Equal(didReduce, xGtN) & sc.Equal(xScalar)) == 0 {
-		return nil, errors.New("secp256k1: invalid x-coordinate order-bit")
+		return nil, errInvalidRecoveryID // Could give a more specific error...
 	}
 
 	// Now that we have what probably is the x-coordinate, and the

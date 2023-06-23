@@ -32,6 +32,7 @@ linters:
     - gocritic
     - godot
     - godox
+    - goerr113
     - gofumpt
     - gomoddirectives
     - goprintffuncname
@@ -65,7 +66,6 @@ linters:
     - whitespace
 
     # Disabled: Run periodically, but too many places to annotate
-    # - goerr113
     # - gomnd
 
     # Disabled: Not how I do things

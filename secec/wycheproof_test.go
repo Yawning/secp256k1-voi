@@ -90,8 +90,6 @@ var (
 		"SHA-256": crypto.SHA256,
 		"SHA-512": crypto.SHA512,
 	}
-
-	errSIsTooLarge = errors.New("secp256k1/secec/ecdsa: s is greater than n/2")
 )
 
 type TestVectors struct {
@@ -136,7 +134,7 @@ type JSONWebKey struct {
 func (jwk *JSONWebKey) IsBasicOk(t *testing.T) error {
 	require.EqualValues(t, jwkKtyEc, jwk.KeyType, "kty")
 	if jwk.Crv != jwkCrvSecp256k1 {
-		return fmt.Errorf("jwk: unsupported curve: '%v'", jwk.Crv)
+		return fmt.Errorf("jwk: unsupported curve: '%v'", jwk.Crv) //nolint:goerr113
 	}
 	return nil
 }
@@ -361,9 +359,6 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 		case "PointDuplication":
 			// Can be sometimes set along with ArithmeticError.
 			expectedErrors = append(expectedErrors, []error{errRIsInfinity, errVNeqR}...)
-		case "SignatureMalleabilityBitcoin":
-			require.Nil(t, expectedErrors)
-			expectedErrors = []error{errSIsTooLarge}
 		}
 		hasFlagMustRejectEarly = hasFlagMustRejectEarly || sigFlagsMustRejectEarly[flag]
 		hasFlagMayRejectEarly = hasFlagMayRejectEarly || sigFlagsMayRejectEarly[flag]

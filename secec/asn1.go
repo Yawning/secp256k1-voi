@@ -19,6 +19,10 @@ var (
 	oidEcPublicKey = stdasn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	oidSecp256k1   = stdasn1.ObjectIdentifier{1, 3, 132, 0, 10}
 
+	errInvalidAsn1SPKI  = errors.New("secp256k1/secec: malformed ASN.1 Subject Public Key Info")
+	errInvalidAsn1Algo  = errors.New("secp256k1/secec: algorithm is not ecPublicKey")
+	errInvalidAsn1Curve = errors.New("secp256k1/secec: named curve is not secp256k1")
+
 	errInvalidAsn1Sig = errors.New("secp256k1/secec/ecdsa: malformed ASN.1 signature")
 )
 
@@ -46,14 +50,14 @@ func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 		!algorithm.ReadASN1ObjectIdentifier(&oidAlgorithm) ||
 		!algorithm.ReadASN1ObjectIdentifier(&oidCurve) ||
 		!algorithm.Empty() {
-		return nil, errors.New("secp256k1: malformed ASN.1 Subject Public Key Info")
+		return nil, errInvalidAsn1SPKI
 	}
 
 	if !oidAlgorithm.Equal(oidEcPublicKey) {
-		return nil, errors.New("secp256k1/secec: algorithm is not ecPublicKey")
+		return nil, errInvalidAsn1Algo
 	}
 	if !oidCurve.Equal(oidSecp256k1) {
-		return nil, errors.New("secp256k1/secec: named curve is not secp256k1")
+		return nil, errInvalidAsn1Curve
 	}
 
 	encodedPoint := subjectPublicKey.RightAlign()

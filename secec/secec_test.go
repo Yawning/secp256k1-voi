@@ -137,7 +137,7 @@ func TestSecec(t *testing.T) {
 		} {
 			k, err := NewPrivateKey(v)
 			require.Nil(t, k, "NewPrivateKey(%x)", v)
-			require.Error(t, err, "NewPrivateKey(%x)", v)
+			require.ErrorIs(t, err, errInvalidPrivateKey, "NewPrivateKey(%x)", v)
 		}
 	})
 	t.Run("PublicKey/Malformed", func(t *testing.T) {

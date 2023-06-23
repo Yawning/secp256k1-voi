@@ -32,6 +32,8 @@ var (
 
 	feZero Element
 	feOne  = NewElement().One()
+
+	errNonCanonicalEncoding = errors.New("internal/field: value out of range")
 )
 
 // Element is a field element.  All arguments and receivers are allowed
@@ -127,7 +129,7 @@ func (fe *Element) SetCanonicalBytes(src *[ElementSize]byte) (*Element, error) {
 	l := helpers.BytesToSaturated(src)
 
 	if reduceSaturated(&l, &l) != 0 {
-		return nil, errors.New("internal/field: value out of range")
+		return nil, errNonCanonicalEncoding
 	}
 	fe.uncheckedSetSaturated(&l)
 

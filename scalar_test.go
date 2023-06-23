@@ -48,7 +48,7 @@ func TestScalar(t *testing.T) {
 	t.Run("SetCanonicalBytes", func(t *testing.T) {
 		for i, raw := range geqN {
 			s, err := NewScalar().SetCanonicalBytes((*[ScalarSize]byte)(raw))
-			require.Error(t, err, "[%d]: SetCanonicalBytes(largerThanN)", i)
+			require.ErrorIs(t, err, errNonCanonicalEncoding, "[%d]: SetCanonicalBytes(largerThanN)", i)
 			require.Nil(t, s, "[%d]: SetCanonicalBytes(largerThanN)", i)
 		}
 	})

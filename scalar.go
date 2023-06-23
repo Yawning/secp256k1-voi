@@ -36,6 +36,8 @@ var (
 		0xffffffffffffffff,
 		0x7fffffffffffffff,
 	}
+
+	errNonCanonicalEncoding = errors.New("secp256k1: scalar value out of range")
 )
 
 // Scalar is an integer modulo `n = 2^256 - 432420386565659656852420866394968145599`.
@@ -116,7 +118,7 @@ func (s *Scalar) SetCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
 	l := helpers.BytesToSaturated(src)
 
 	if reduceSaturated(&l, &l) != 0 {
-		return nil, errors.New("secp256k1: scalar value out of range")
+		return nil, errNonCanonicalEncoding
 	}
 	s.uncheckedSetSaturated(&l)
 

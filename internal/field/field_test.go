@@ -50,7 +50,7 @@ func TestElement(t *testing.T) {
 		for i, raw := range geqP {
 			fe, err := NewElement().SetCanonicalBytes((*[ElementSize]byte)(raw))
 			require.Nil(t, fe, "[%d]: SetCanonicalBytes(largerThanN)", i)
-			require.Error(t, err, "[%d]: SetCanonicalBytes(largerThanN)", i)
+			require.ErrorIs(t, err, errNonCanonicalEncoding, "[%d]: SetCanonicalBytes(largerThanN)", i)
 		}
 	})
 	t.Run("MustSetCanonicalBytes", func(t *testing.T) {

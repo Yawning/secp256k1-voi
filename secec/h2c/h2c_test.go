@@ -57,24 +57,24 @@ func TestH2C(t *testing.T) {
 		// Our implementation requires at least a 256-bit digest.
 		var out [encodeToCurveSize]byte
 		err := expandMessageXMD(out[:], crypto.SHA1, dst, []byte("short hash"))
-		require.Error(t, err, "expandMessageXMD - SHA1")
+		require.ErrorIs(t, err, errInvalidDigestSize, "expandMessageXMD - SHA1")
 
 		// Our implementation rejects 0-length DSTs.
 		err = expandMessageXMD(out[:], crypto.SHA256, []byte{}, []byte("zero DST"))
-		require.Error(t, err, "expandMessageXMD - 0 length dst")
+		require.ErrorIs(t, err, errInvalidDomainSep, "expandMessageXMD - 0 length dst")
 
 		// Our implementation rejects 0-length output, even if the draft does not.
 		err = expandMessageXMD(out[:0], crypto.SHA256, dst, []byte("zero output"))
-		require.Error(t, err, "expandMessageXMD - 0 length output")
+		require.ErrorIs(t, err, errInvalidOutputSize, "expandMessageXMD - 0 length output")
 
 		// The draft calls for rejecting outputs larger than > 2^16-1.
 		// Though, this case can never happen (see the ell tests).
 		err = expandMessageXMD(make([]byte, 65536), crypto.SHA256, dst, []byte("oversize output"))
-		require.Error(t, err, "expandMessageXMD - oversize output")
+		require.ErrorIs(t, err, errInvalidOutputSize, "expandMessageXMD - oversize output")
 
 		// ell = ceil(len_in_bytes / b_in_bytes), up to 255
 		err = expandMessageXMD(make([]byte, 8161), crypto.SHA256, dst, []byte("oversize ell"))
-		require.Error(t, err, "expandMessageXMD - oversize ell")
+		require.ErrorIs(t, err, errEllOutOfRange, "expandMessageXMD - oversize ell")
 
 		err = expandMessageXMD(make([]byte, 8160), crypto.SHA256, dst, []byte("maximum ell"))
 		require.NoError(t, err, "expandMessageXMD - maximum ell")

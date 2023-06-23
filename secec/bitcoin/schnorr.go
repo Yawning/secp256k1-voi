@@ -39,8 +39,11 @@ const (
 var (
 	errAIsInfinity      = errors.New("secp256k1/secec/bitcoin: public key is the point at infinity")
 	errAIsUninitialized = errors.New("secp256k1/secec/bitcoin: uninitialized public key")
-
-	errEntropySource = errors.New("secp256k1/secec/bitcoin: entropy source failure")
+	errEntropySource    = errors.New("secp256k1/secec/bitcoin: entropy source failure")
+	errInvalidDomainSep = errors.New("secp256k1/secec/bitcoin: invalid domain separator")
+	errInvalidPublicKey = errors.New("secp256k1/secec/bitcoin: invalid public key")
+	errKPrimeIsZero     = errors.New("secp256k1/secec/bitcoin: k' = 0")
+	errSigCheckFailed   = errors.New("secp256k1/secec/bitcoin: failed to verify new sig")
 )
 
 // PreHashSchnorrMessage pre-hashes the message `msg`, with the
@@ -53,7 +56,7 @@ var (
 func PreHashSchnorrMessage(name string, msg []byte) ([]byte, error) {
 	// Go strings are UTF-8 by default, but this accepts user input.
 	if n := strings.ToValidUTF8(name, ""); n != name || len(name) == 0 {
-		return nil, fmt.Errorf("secp256k1/secec/bitcoin/schnorr: invalid domain-separator")
+		return nil, errInvalidDomainSep
 	}
 
 	return schnorrTaggedHash(name, msg), nil
@@ -248,7 +251,7 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 // SchnorrPublicKey.
 func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 	if len(key) != SchnorrPublicKeySize {
-		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: invalid public key")
+		return nil, errInvalidPublicKey
 	}
 
 	var ptBytes [secp256k1.CompressedPointSize]byte
@@ -257,7 +260,7 @@ func NewSchnorrPublicKey(key []byte) (*SchnorrPublicKey, error) {
 
 	pt, err := secp256k1.NewPointFromBytes(ptBytes[:])
 	if err != nil {
-		return nil, fmt.Errorf("secp256k1/secec/bitcoin/schnorr: failed to decompress public key: %w", err)
+		return nil, fmt.Errorf("secp256k1/secec/bitcoin: failed to decompress public key: %w", err)
 	}
 
 	return &SchnorrPublicKey{
@@ -343,7 +346,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 	if kPrime.IsZero() != 0 {
 		// In theory this is a probabalistic failure, however the odds
 		// of this happening are basically non-existent.
-		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: k' = 0")
+		return nil, errKPrimeIsZero
 	}
 
 	// Let R = k'⋅G.
@@ -385,7 +388,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 	if !verifySchnorrSelf(d, sk.PublicKey().Bytes(), msg, sig) {
 		// This is likely totally untestable, since it requires
 		// generating a signature that doesn't verify.
-		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: failed to verify sig")
+		return nil, errSigCheckFailed
 	}
 
 	return sig, nil

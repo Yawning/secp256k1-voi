@@ -156,7 +156,7 @@ func GenerateKey() (*PrivateKey, error) {
 // public key would be irregular.
 func NewPrivateKey(key []byte) (*PrivateKey, error) {
 	if len(key) != PrivateKeySize {
-		return nil, errors.New("secp256k1/secec: invalid private key size")
+		return nil, errInvalidPrivateKey
 	}
 
 	s, didReduce := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(key))
