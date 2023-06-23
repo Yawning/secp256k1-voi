@@ -88,7 +88,7 @@ func testPointS11n(t *testing.T) {
 		_, err = NewIdentityPoint().XBytes()
 		require.Error(t, err, "Identity.XBytes()")
 	})
-	t.Run("Malformed/Compressed", func(t *testing.T) {
+	t.Run("Invalid/Compressed", func(t *testing.T) {
 		p := newRcvr().DebugMustRandomize()
 		pBytes := p.CompressedBytes()
 
@@ -109,7 +109,7 @@ func testPointS11n(t *testing.T) {
 		require.Nil(t, p2, "SetCompressedBytes(badPrefix)")
 		require.ErrorIs(t, err, errInvalidPrefix, "SetCompressedBytes(badPrefix)")
 	})
-	t.Run("Malformed/Uncompressed", func(t *testing.T) {
+	t.Run("Invalid/Uncompressed", func(t *testing.T) {
 		p := newRcvr().DebugMustRandomize()
 		pBytes := p.UncompressedBytes()
 

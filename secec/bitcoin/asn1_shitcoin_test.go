@@ -94,7 +94,7 @@ func TestBIP0066(t *testing.T) {
 			require.False(t, ok, "IsValidSignatureEncodingBIP0066")
 
 			_, _, err := parseASN1SignatureShitcoin(b)
-			require.ErrorIs(t, err, errMalformedBIP0066Sig, "parseASN1SignatureShitcoin")
+			require.ErrorIs(t, err, errInvalidBIP0066Sig, "parseASN1SignatureShitcoin")
 		})
 	}
 }

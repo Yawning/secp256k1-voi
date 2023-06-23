@@ -19,11 +19,11 @@ var (
 	oidEcPublicKey = stdasn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	oidSecp256k1   = stdasn1.ObjectIdentifier{1, 3, 132, 0, 10}
 
-	errInvalidAsn1SPKI  = errors.New("secp256k1/secec: malformed ASN.1 Subject Public Key Info")
+	errInvalidAsn1SPKI  = errors.New("secp256k1/secec: invalid ASN.1 Subject Public Key Info")
 	errInvalidAsn1Algo  = errors.New("secp256k1/secec: algorithm is not ecPublicKey")
 	errInvalidAsn1Curve = errors.New("secp256k1/secec: named curve is not secp256k1")
 
-	errInvalidAsn1Sig = errors.New("secp256k1/secec/ecdsa: malformed ASN.1 signature")
+	errInvalidAsn1Sig    = errors.New("secp256k1/secec: invalid ASN.1 signature")
 )
 
 // ParseASN1PublicKey parses an ASN.1 encoded public key as specified in
@@ -97,19 +97,6 @@ func ParseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, erro
 	return r, s, nil
 }
 
-func buildASN1PublicKey(pk *PublicKey) []byte {
-	var b cryptobyte.Builder
-	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-			b.AddASN1ObjectIdentifier(oidEcPublicKey)
-			b.AddASN1ObjectIdentifier(oidSecp256k1)
-		})
-		b.AddASN1BitString(pk.Bytes()) // Uncompressed SEC1 format.
-	})
-
-	return b.BytesOrPanic()
-}
-
 // BuildASN1Signature serializes `(r, s)` into an ASN.1 encoded signature
 // as specified in SEC 1, Version 2.0, Appendix C.8.
 func BuildASN1Signature(r, s *secp256k1.Scalar) []byte {
@@ -121,6 +108,19 @@ func BuildASN1Signature(r, s *secp256k1.Scalar) []byte {
 	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 		b.AddASN1BigInt(&rBig)
 		b.AddASN1BigInt(&sBig)
+	})
+
+	return b.BytesOrPanic()
+}
+
+func buildASN1PublicKey(pk *PublicKey) []byte {
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1ObjectIdentifier(oidEcPublicKey)
+			b.AddASN1ObjectIdentifier(oidSecp256k1)
+		})
+		b.AddASN1BitString(pk.Bytes()) // Uncompressed SEC1 format.
 	})
 
 	return b.BytesOrPanic()

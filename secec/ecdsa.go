@@ -22,11 +22,11 @@ const (
 )
 
 var (
-	errInvalidScalar = errors.New("secp256k1/secec/ecdsa: invalid scalar")
-	errInvalidDigest = errors.New("secp256k1/secec/ecdsa: invalid digest")
-	errInvalidRorS   = errors.New("secp256k1/secec/ecdsa: r or s is zero")
-	errRIsInfinity   = errors.New("secp256k1/secec/ecdsa: R is the point at infinity")
-	errVNeqR         = errors.New("secp256k1/secec/ecdsa: v does not equal r")
+	errInvalidScalar = errors.New("secp256k1/secec: invalid scalar")
+	errInvalidDigest = errors.New("secp256k1/secec: invalid digest")
+	errInvalidRorS   = errors.New("secp256k1/secec: r or s is zero")
+	errRIsInfinity   = errors.New("secp256k1/secec: R is the point at infinity")
+	errVNeqR         = errors.New("secp256k1/secec: v does not equal r")
 
 	errEntropySource     = errors.New("secp256k1/secec: entropy source failure")
 	errRejectionSampling = errors.New("secp256k1/secec: failed rejection sampling")

@@ -86,7 +86,7 @@ func TestSchnorr(t *testing.T) {
 
 	t.Run("TestVectors", testSchnorrKAT)
 
-	t.Run("PublicKey/Malformed", func(t *testing.T) {
+	t.Run("PublicKey/Invalid", func(t *testing.T) {
 		k, err := NewSchnorrPublicKey([]byte{0x45, 0x45, 0x45, 0x45})
 		require.Nil(t, k, "NewSchnorrPublicKey - truncated")
 		require.ErrorIs(t, err, errInvalidPublicKey, "NewSchnorrPublicKey - truncated")

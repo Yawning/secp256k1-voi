@@ -129,7 +129,7 @@ func TestSecec(t *testing.T) {
 		require.ErrorIs(t, err, errInvalidDigest, "RecoverPublicKey - Truncated h")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
-	t.Run("PrivateKey/Malformed", func(t *testing.T) {
+	t.Run("PrivateKey/Invalid", func(t *testing.T) {
 		for _, v := range [][]byte{
 			[]byte("trucated"),
 			helpers.MustBytesFromHex("0000000000000000000000000000000000000000000000000000000000000000"), // N+1
@@ -140,7 +140,7 @@ func TestSecec(t *testing.T) {
 			require.ErrorIs(t, err, errInvalidPrivateKey, "NewPrivateKey(%x)", v)
 		}
 	})
-	t.Run("PublicKey/Malformed", func(t *testing.T) {
+	t.Run("PublicKey/Invalid", func(t *testing.T) {
 		k, err := NewPublicKey([]byte{0x00})
 		require.Nil(t, k, "NewPublicKey - identity")
 		require.ErrorIs(t, err, errAIsInfinity, "NewPublicKey - identity")

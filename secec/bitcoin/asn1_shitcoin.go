@@ -12,7 +12,7 @@ import (
 	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
-var errMalformedBIP0066Sig = errors.New("secp256k1/secec/bitcoin: malformed BIP-0066 signature")
+var errInvalidBIP0066Sig = errors.New("secp256k1/secec/bitcoin: invalid BIP-0066 signature")
 
 // IsValidSignatureEncodingBIP0066 returns true iff `data` is encoded
 // per BIP-0066, including the trailing `sighash` byte.
@@ -124,7 +124,7 @@ func IsValidSignatureEncodingBIP0066(data []byte) bool {
 
 func parseASN1SignatureShitcoin(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
 	if !IsValidSignatureEncodingBIP0066(data) {
-		return nil, nil, errMalformedBIP0066Sig
+		return nil, nil, errInvalidBIP0066Sig
 	}
 
 	return secec.ParseASN1Signature(data[:len(data)-1]) // Ignore the sighash
