@@ -15,6 +15,9 @@ import (
 	"gitlab.com/yawning/secp256k1-voi"
 )
 
+// CompactSignatureSize is the size of a compact signature in bytes.
+const CompactSignatureSize = 64
+
 var (
 	oidEcPublicKey = stdasn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	oidSecp256k1   = stdasn1.ObjectIdentifier{1, 3, 132, 0, 10}
@@ -24,6 +27,7 @@ var (
 	errInvalidAsn1Curve = errors.New("secp256k1/secec: named curve is not secp256k1")
 
 	errInvalidAsn1Sig    = errors.New("secp256k1/secec: invalid ASN.1 signature")
+	errInvalidCompactSig = errors.New("secp256k1/secec: invalid compact signature")
 )
 
 // ParseASN1PublicKey parses an ASN.1 encoded public key as specified in
@@ -69,7 +73,7 @@ func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 //
 // Note: The signature MUST be `SEQUENCE { r INTEGER, s INTEGER }`,
 // as in encoded as a `ECDSA-Sig-Value`, WITHOUT the optional `a` and
-// `y` fields.
+// `y` fields.  Either `r` or `s` being `0` is treated as an error.
 func ParseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
 	var (
 		inner          cryptobyte.String
@@ -111,6 +115,36 @@ func BuildASN1Signature(r, s *secp256k1.Scalar) []byte {
 	})
 
 	return b.BytesOrPanic()
+}
+
+// ParseCompactSignature parses a "compact" `[R | S]` signature, and
+// returns the scalars `(r, s)`.  Both `r` and `s` MUST be in the range
+// `[1, n)`.
+func ParseCompactSignature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
+	if len(data) != CompactSignatureSize {
+		return nil, nil, errInvalidCompactSig
+	}
+
+	r, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(data[0:32]))
+	if err != nil || r.IsZero() != 0 {
+		return nil, nil, errInvalidScalar
+	}
+	s, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(data[32:64]))
+	if err != nil || s.IsZero() != 0 {
+		return nil, nil, errInvalidScalar
+	}
+
+	return r, s, nil
+}
+
+// BuildCompactSignature serializes `(r, s)` into a "compact" `[R | S]`
+// signature.
+func BuildCompactSignature(r, s *secp256k1.Scalar) []byte {
+	dst := make([]byte, 0, CompactSignatureSize)
+	dst = append(dst, r.Bytes()...)
+	dst = append(dst, s.Bytes()...)
+
+	return dst
 }
 
 func buildASN1PublicKey(pk *PublicKey) []byte {

@@ -88,6 +88,12 @@ func TestSecec(t *testing.T) {
 		ok = pub.Verify(testMessageHash, r, s)
 		require.True(t, ok, "Verify")
 
+		compactSig := BuildCompactSignature(r, s)
+		compR, compS, err := ParseCompactSignature(compactSig)
+		require.NoError(t, err, "ParseCompactSignature")
+		require.EqualValues(t, 1, r.Equal(compR))
+		require.EqualValues(t, 1, s.Equal(compS))
+
 		// Test some pathological cases.
 		var zero secp256k1.Scalar
 		err = verify(pub, testMessageHash, &zero, s)
@@ -98,6 +104,16 @@ func TestSecec(t *testing.T) {
 		badSig, err := priv.SignASN1(rand.Reader, testMessageHash[:30])
 		require.Nil(t, badSig, "SignASN1 - Truncated hash")
 		require.ErrorIs(t, err, errInvalidDigest, "SignASN1 - Truncated hash")
+
+		_, _, err = ParseCompactSignature(compactSig[:15])
+		require.ErrorIs(t, err, errInvalidCompactSig, "ParseCompactSignature - truncated")
+
+		badCompactSig := BuildCompactSignature(&zero, s)
+		_, _, err = ParseCompactSignature(badCompactSig)
+		require.ErrorIs(t, err, errInvalidScalar, "ParseCompactSignature - Zero r")
+		badCompactSig = BuildCompactSignature(r, &zero)
+		_, _, err = ParseCompactSignature(badCompactSig)
+		require.ErrorIs(t, err, errInvalidScalar, "ParseCompactSignature - Zero s")
 
 		require.False(t, priv.Equal(privNist), "priv.Equal(privNist)")
 		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
