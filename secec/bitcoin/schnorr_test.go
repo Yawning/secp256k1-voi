@@ -192,6 +192,7 @@ func testSchnorrKAT(t *testing.T) {
 				return
 			}
 			require.NoError(t, err, "NewSchnorrPublicKey")
+			pkPoint := pk.Point()
 
 			msgBytes := helpers.MustBytesFromHex(vec[fieldMessage])
 			sigBytes := helpers.MustBytesFromHex(vec[fieldSignature])
@@ -223,14 +224,14 @@ func testSchnorrKAT(t *testing.T) {
 
 			require.True(t, derivedPk.Equal(pk), "derivedPk.Equal(pk)")
 			require.EqualValues(t, pk.Bytes(), derivedPk.Bytes(), "pk.Bytes() == deriviedPk.Bytes()")
-			require.EqualValues(t, 1, pk.point.Equal(derivedPk.point), "pk.Point() == derivedPk.Point()")
+			require.EqualValues(t, 1, pkPoint.Equal(derivedPk.point), "pk.Point() == derivedPk.Point()")
 
 			derivedPk = NewSchnorrPublicKeyFromECDSA(ecdsaSk.PublicKey())
 			require.True(t, derivedPk.Equal(pk), "derivedPk.Equal(pk) - FromECDSA")
 
 			skPubKey := sk.PublicKey()
 			require.EqualValues(t, pk.Bytes(), skPubKey.Bytes(), "pk.Bytes() == sk.pk.Bytes()")
-			require.EqualValues(t, 1, pk.point.Equal(skPubKey.point), "pk.Point() == sk.pk.Point()")
+			require.EqualValues(t, 1, pkPoint.Equal(skPubKey.point), "pk.Point() == sk.pk.Point()")
 
 			auxRandBytes := (*[schnorrEntropySize]byte)(helpers.MustBytesFromHex(vec[fieldAuxRand]))
 

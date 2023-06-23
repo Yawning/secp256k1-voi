@@ -196,6 +196,11 @@ func (k *SchnorrPublicKey) Bytes() []byte {
 	return bytes.Clone(k.xBytes)
 }
 
+// Point returns a copy of the point underlying `k`.
+func (k *SchnorrPublicKey) Point() *secp256k1.Point {
+	return secp256k1.NewPointFrom(k.point)
+}
+
 // Equal returns whether `x` represents the same public key as `k`.
 // This check is performed in constant time as long as the key types
 // match.
