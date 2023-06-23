@@ -33,8 +33,10 @@ import (
 // - https://bitcointalk.org/index.php?topic=3238.0
 // - https://homepages.dcc.ufmg.br/~leob/papers/jcen12.pdf
 
-// Constants shamelessly stolen from libsecp256k1's sage script output.
+//nolint:godot
 var (
+	// Constants shamelessly stolen from libsecp256k1's sage script output.
+
 	// -Lambda = 0xac9c52b33fa3cf1f5ad9e3fd77ed9ba4a880b9fc8ec739c2e0cfc810b51283cf
 	scNegLambda = newScalarFromCanonicalHex("0xac9c52b33fa3cf1f5ad9e3fd77ed9ba4a880b9fc8ec739c2e0cfc810b51283cf")
 
@@ -307,7 +309,7 @@ func (v *Point) DoubleScalarMultBasepointVartime(u1, u2 *Scalar, p *Point) *Poin
 	// especially if the variable-base multiply is well optimized.
 	//
 	// This routine is the most performance critical as it is the core
-	// of ECDSA verfication.
+	// of ECDSA verification.
 	u1g := newRcvr().scalarBaseMultVartime(u1)
 	u2p := newRcvr().scalarMultVartimeGLV(u2, p)
 	return v.Add(u1g, u2p)

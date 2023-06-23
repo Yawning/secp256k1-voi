@@ -70,7 +70,7 @@ func testPointS11n(t *testing.T) {
 		requirePointDeepEquals(t, NewIdentityPoint(), p, "NewPointFromBytes(idCompressed)")
 
 		_, err = newRcvr().SetBytes([]byte{69})
-		require.Error(t, err, "SetBytes(69)")
+		require.ErrorIs(t, err, errInvalidPrefix, "SetBytes(69)")
 	})
 	t.Run("NewPointFromCoords", func(t *testing.T) {
 		p, err := NewPointFromCoords((*[CoordSize]byte)(feGX.Bytes()), (*[CoordSize]byte)(feGY.Bytes()))
@@ -100,14 +100,14 @@ func testPointS11n(t *testing.T) {
 
 		p2, err = NewIdentityPoint().SetCompressedBytes(b)
 		require.Nil(t, p2, "SetCompressedBytes(truncated)")
-		require.Error(t, err, "SetCompressedBytes(truncated)")
+		require.ErrorIs(t, err, errInvalidEncoding, "SetCompressedBytes(truncated)")
 
 		b = bytes.Clone(pBytes)
 		b[0] = 69
 
 		p2, err = NewIdentityPoint().SetCompressedBytes(b)
 		require.Nil(t, p2, "SetCompressedBytes(badPrefix)")
-		require.Error(t, err, "SetCompressedBytes(badPrefix)")
+		require.ErrorIs(t, err, errInvalidPrefix, "SetCompressedBytes(badPrefix)")
 	})
 	t.Run("Malformed/Uncompressed", func(t *testing.T) {
 		p := newRcvr().DebugMustRandomize()
@@ -121,14 +121,14 @@ func testPointS11n(t *testing.T) {
 
 		p2, err = NewIdentityPoint().SetUncompressedBytes(b)
 		require.Nil(t, p2, "SetUncompressedBytes(truncated)")
-		require.Error(t, err, "SetUncompressedBytes(truncated)")
+		require.ErrorIs(t, err, errInvalidEncoding, "SetUncompressedBytes(truncated)")
 
 		b = bytes.Clone(pBytes)
 		b[0] = 23
 
 		p2, err = NewIdentityPoint().SetUncompressedBytes(b)
 		require.Nil(t, p2, "SetUncompressedBytes(badPrefix)")
-		require.Error(t, err, "SetUncompressedBytes(badPrefix)")
+		require.ErrorIs(t, err, errInvalidPrefix, "SetUncompressedBytes(badPrefix)")
 	})
 }
 
@@ -137,10 +137,10 @@ func testPointAdd(t *testing.T) {
 		a := newRcvr().DebugMustRandomize()
 		id := NewIdentityPoint()
 
-		aId := newRcvr().Add(a, id)
+		aID := newRcvr().Add(a, id)
 		idA := newRcvr().Add(id, a)
 
-		requirePointEquals(t, a, aId, "a + 0 = a")
+		requirePointEquals(t, a, aID, "a + 0 = a")
 		requirePointEquals(t, a, idA, "0 + a = a")
 	})
 	t.Run("a + a", func(t *testing.T) {
@@ -186,10 +186,10 @@ func testPointSubtract(t *testing.T) {
 		negA := newRcvr().Negate(a)
 		id := NewIdentityPoint()
 
-		aId := newRcvr().Subtract(a, id)
+		aID := newRcvr().Subtract(a, id)
 		idA := newRcvr().Subtract(id, a)
 
-		requirePointEquals(t, a, aId, "a - 0 = a")
+		requirePointEquals(t, a, aID, "a - 0 = a")
 		requirePointEquals(t, negA, idA, "0 - a = -a")
 	})
 	t.Run("a - a", func(t *testing.T) {

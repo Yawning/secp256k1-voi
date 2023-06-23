@@ -20,7 +20,7 @@ var (
 // of `fe` with a length in the range `[32,64]`-bytes, and returns `fe`.
 // This routine only exists to implement certain standards that require
 // this.  In practice, p is close enough to `2^256-1` such that this is
-// largely unneccesary.
+// largely unnecessary.
 func (fe *Element) SetWideBytes(src []byte) *Element {
 	// An alternative way to do this would be something like
 	// 14.3.4 "Reduction methods for moduli of special form" from

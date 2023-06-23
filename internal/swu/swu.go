@@ -11,6 +11,7 @@ import (
 	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
 )
 
+//nolint:godot
 var (
 	// Z = -11
 	feZ = func() *field.Element {
@@ -151,7 +152,7 @@ func MapToCurveSimpleSWU(u *field.Element) (*field.Element, *field.Element) {
 	return x, y
 }
 
-func IsoMap(X, Y *field.Element) (*field.Element, *field.Element, uint64) {
+func IsoMap(X, Y *field.Element) (*field.Element, *field.Element, uint64) { //nolint:gocritic
 	XX := field.NewElement().Square(X)
 	XXX := field.NewElement().Multiply(XX, X)
 

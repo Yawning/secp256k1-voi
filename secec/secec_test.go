@@ -106,7 +106,6 @@ func TestSecec(t *testing.T) {
 		require.True(t, pub.Equal(pubUntyped), "pub.Equal(pubUntyped)")
 	})
 	t.Run("ECDSA/Recover", func(t *testing.T) {
-		// TODO: It would be nice to find test vectors for this...
 		priv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey")
 

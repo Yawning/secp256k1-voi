@@ -41,7 +41,7 @@ func expandMessageXMD(out []byte, hFunc crypto.Hash, domainSeparator, message []
 	case lenDST == 0:
 		// Per "3.1. Domain separation requirements", "Tags MUST have nonzero length."
 		// This is not currently reflected in the procedure (See issue #353).
-		return fmt.Errorf("secp256k1/secec/h2c: zero-legnth domain separator")
+		return fmt.Errorf("secp256k1/secec/h2c: zero-length domain separator")
 	case lenDST > math.MaxUint8:
 		// DST = H("H2C-OVERSIZE-DST-" || a_very_long_DST)
 		_, _ = h.Write(oversizeDST)

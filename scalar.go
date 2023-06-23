@@ -16,6 +16,7 @@ import (
 // ScalarSize is the size of a scalar in bytes.
 const ScalarSize = 32
 
+//nolint:godot
 var (
 	nSat = func() [5]uint64 {
 		var n [5]uint64
@@ -124,7 +125,7 @@ func (s *Scalar) SetCanonicalBytes(src *[ScalarSize]byte) (*Scalar, error) {
 
 // Bytes returns the canonical big-endian encoding of `s`.
 func (s *Scalar) Bytes() []byte {
-	// Blah blah blah outline blah escape analysis blah.
+	// Blah outline blah escape analysis blah.
 	var dst [ScalarSize]byte
 	return s.getBytes(&dst)
 }
@@ -189,7 +190,7 @@ func (s *Scalar) uncheckedSetSaturated(a *[4]uint64) *Scalar {
 }
 
 // pow2k sets `s = a ^ (2 * k)` and returns `s`.  k MUST be non-zero.
-func (s *Scalar) pow2k(a *Scalar, k uint) *Scalar {
+func (s *Scalar) pow2k(a *Scalar, k uint) *Scalar { //nolint:unparam
 	if k == 0 {
 		// This could just set s = a, but "don't do that".
 		panic("secp256k1: Scalar.pow2k k out of bounds")

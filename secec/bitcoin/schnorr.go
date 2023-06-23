@@ -100,9 +100,9 @@ func (k *SchnorrPrivateKey) PublicKey() *SchnorrPublicKey {
 	return k.publicKey
 }
 
-// Sign signs signs `msg` using the SchnorrPrivateKey `k`, using
-// the signing procedure as specified in BIP-0340.  It returns the
-// byte-encoded signature.
+// Sign signs `msg` using the SchnorrPrivateKey `k`, using the signing
+// procedure as specified in BIP-0340.  It returns the byte-encoded
+// signature.
 //
 // Note: If `rand` is nil, the [crypto/rand.Reader] will be used.
 func (k *SchnorrPrivateKey) Sign(rand io.Reader, msg []byte) ([]byte, error) {
@@ -207,7 +207,7 @@ func (k *SchnorrPublicKey) Equal(x crypto.PublicKey) bool {
 }
 
 // Verify verifies the Schnorr signature `sig` of `msg`, using the
-// SchnorrPublicKey `k`, using the verification procedure as specifed
+// SchnorrPublicKey `k`, using the verification procedure as specified
 // in BIP-0340.  Its return value records whether the signature is
 // valid.
 func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
@@ -332,11 +332,11 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 
 	// Let rand = hashBIP0340/nonce(t || bytes(P) || m)[12].
 
-	rand := schnorrTaggedHash(schnorrTagNonce, t[:], pBytes, msg[:])
+	rand := schnorrTaggedHash(schnorrTagNonce, t[:], pBytes, msg)
 
 	// Let k' = int(rand) mod n[13].
 
-	kPrime, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(rand))
+	kPrime, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(rand)) //nolint:revive
 
 	// Fail if k' = 0.
 
@@ -357,7 +357,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 
 	// Let e = int(hashBIP0340/challenge(bytes(R) || bytes(P) || m)) mod n.
 
-	eBytes := schnorrTaggedHash(schnorrTagChallenge, rXBytes, pBytes, msg[:])
+	eBytes := schnorrTaggedHash(schnorrTagChallenge, rXBytes, pBytes, msg)
 	e, _ := secp256k1.NewScalarFromBytes((*[secp256k1.ScalarSize]byte)(eBytes))
 
 	// Let sig = bytes(R) || bytes((k + ed) mod n).
@@ -382,7 +382,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 	// Note: Apart from the faster calculation of R, the verification
 	// process is identical to the normal verify.
 
-	if !verifySchnorrSelf(d, sk.PublicKey().Bytes(), msg[:], sig) {
+	if !verifySchnorrSelf(d, sk.PublicKey().Bytes(), msg, sig) {
 		// This is likely totally untestable, since it requires
 		// generating a signature that doesn't verify.
 		return nil, errors.New("secp256k1/secec/bitcoin/schnorr: failed to verify sig")
@@ -440,7 +440,7 @@ func parseSchnorrSignature(pkXBytes, msg, sig []byte) (bool, *secp256k1.Scalar, 
 	return true, s, e, sigRXBytes
 }
 
-func verifySchnorrSignatureR(sigRXBytes []byte, R *secp256k1.Point) bool {
+func verifySchnorrSignatureR(sigRXBytes []byte, R *secp256k1.Point) bool { //nolint:gocritic
 	// Fail if is_infinite(R).
 
 	if R.IsIdentity() != 0 {
@@ -462,7 +462,7 @@ func verifySchnorrSignatureR(sigRXBytes []byte, R *secp256k1.Point) bool {
 	//
 	// Note/yawning: Vartime compare, because this is verification.
 
-	if !bytes.Equal(rXBytes, sigRXBytes[:]) {
+	if !bytes.Equal(rXBytes, sigRXBytes) {
 		return false
 	}
 

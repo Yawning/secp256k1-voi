@@ -205,7 +205,7 @@ func (v *Point) addMixed(p *Point, x2, y2 *field.Element) *Point {
 }
 
 // doubleComplete sets `v = p + p`, and returns `v`.
-func (v *Point) doubleComplete(p *Point) *Point {
+func (v *Point) doubleComplete(p *Point) *Point { //nolint:unparam
 	// Algorithm 9 from "Complete addition formulas for prime
 	// order elliptic curves" by Renes, Costello, and Batina.
 	//

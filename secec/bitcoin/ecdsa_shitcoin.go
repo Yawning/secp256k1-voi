@@ -9,7 +9,7 @@ import "gitlab.com/yawning/secp256k1-voi/secec"
 
 // VerifyASN1 verifies the BIP-0066 encoded signature `sig` of
 // `hash`, using the PublicKey `k`, using the verification procedure
-// as specifed in SEC 1, Version 2.0, Section 4.1.4, with the
+// as specified in SEC 1, Version 2.0, Section 4.1.4, with the
 // additional restriction that `s` MUST be less than or equal
 // to `n / 2`. Its return value records whether the signature
 // is valid.

@@ -74,6 +74,7 @@ func MustBytesFromHex(src string) []byte {
 	if err != nil {
 		panic("internal/helpers: invalid hex string: " + err.Error())
 	}
+
 	return b
 }
 

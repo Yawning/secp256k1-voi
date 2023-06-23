@@ -62,7 +62,7 @@ func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
 }
 
 // Verify verifies the `(r, s)` signature of `hash`, using the PublicKey
-// `k`, using the verification procedure as specifed in SEC 1,
+// `k`, using the verification procedure as specified in SEC 1,
 // Version 2.0, Section 4.1.4.  Its return value records whether the
 // signature is valid.
 func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
@@ -70,7 +70,7 @@ func (k *PublicKey) Verify(hash []byte, r, s *secp256k1.Scalar) bool {
 }
 
 // VerifyASN1 verifies the ASN.1 encoded signature `sig` of `hash`,
-// using the PublicKey `k`, using the verification procedure as specifed
+// using the PublicKey `k`, using the verification procedure as specified
 // in SEC 1, Version 2.0, Section 4.1.4.  Its return value records
 // whether the signature is valid.
 //
@@ -214,7 +214,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 		// 6. Compute: s = k^−1 (e + r * dU) mod n.
 		// If s = 0, return to Step 1.
 
-		kInv := secp256k1.NewScalar().Invert(k)
+		kInv := secp256k1.NewScalar().Invert(k) //nolint:revive
 		s = secp256k1.NewScalar()
 		s.Multiply(r, d.scalar).Add(s, e).Multiply(s, kInv)
 		if s.IsZero() == 0 {

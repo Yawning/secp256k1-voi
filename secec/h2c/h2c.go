@@ -7,7 +7,7 @@ package h2c
 
 import (
 	"crypto"
-	_ "crypto/sha256"
+	_ "crypto/sha256" // Pull in SHA256
 
 	"gitlab.com/yawning/secp256k1-voi"
 )
@@ -22,7 +22,7 @@ const (
 
 // Secp256k1_XMD_SHA256_SSWU_RO implements the secp256k1_XMD:SHA-256_SSWU_RO_
 // h2c suite.
-func Secp256k1_XMD_SHA256_SSWU_RO(domainSeparator, message []byte) (*secp256k1.Point, error) {
+func Secp256k1_XMD_SHA256_SSWU_RO(domainSeparator, message []byte) (*secp256k1.Point, error) { //nolint:revive
 	// 1. u = hash_to_field(msg, 2)
 	var uBytes [hashToCurveSize]byte
 	if err := expandMessageXMD(uBytes[:], crypto.SHA256, domainSeparator, message); err != nil {
@@ -46,7 +46,7 @@ func Secp256k1_XMD_SHA256_SSWU_RO(domainSeparator, message []byte) (*secp256k1.P
 
 // Secp256k1_XMD_SHA256_SSWU_NU implements the secp256k1_XMD:SHA-256_SSWU_NU_
 // h2c suite.
-func Secp256k1_XMD_SHA256_SSWU_NU(domainSeparator, message []byte) (*secp256k1.Point, error) {
+func Secp256k1_XMD_SHA256_SSWU_NU(domainSeparator, message []byte) (*secp256k1.Point, error) { //nolint:revive
 	// 1. u = hash_to_field(msg, 1)
 	var uBytes [encodeToCurveSize]byte
 	if err := expandMessageXMD(uBytes[:], crypto.SHA256, domainSeparator, message); err != nil {

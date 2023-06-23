@@ -146,7 +146,7 @@ func (fe *Element) MustSetCanonicalBytes(src *[ElementSize]byte) *Element {
 
 // Bytes returns the canonical big-endian encoding of `fe`.
 func (fe *Element) Bytes() []byte {
-	// Blah blah blah outline blah escape analysis blah.
+	// Blah outline blah escape analysis blah.
 	var dst [ElementSize]byte
 	return fe.getBytes(&dst)
 }

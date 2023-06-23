@@ -7,7 +7,7 @@ package h2c
 
 import (
 	"crypto"
-	_ "crypto/sha1"
+	_ "crypto/sha1" //nolint:gosec // Used for short digest test.
 	_ "crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -33,7 +33,7 @@ type h2cExpandTestDef struct {
 }
 
 func TestH2C(t *testing.T) {
-	for _, expandTest := range []h2cExpandTestDef{
+	expandTestDefs := []h2cExpandTestDef{
 		{
 			n:    "ExpandMessageXMD/SHA256",
 			file: "testdata/expand_message_xmd_SHA256_38.json",
@@ -44,9 +44,10 @@ func TestH2C(t *testing.T) {
 			file: "testdata/expand_message_xmd_SHA256_256.json",
 			h:    crypto.SHA256,
 		},
-	} {
+	}
+	for i, expandTest := range expandTestDefs {
 		t.Run(expandTest.n, func(t *testing.T) {
-			testExpandMessage(t, &expandTest)
+			testExpandMessage(t, &expandTestDefs[i])
 		})
 	}
 
@@ -79,7 +80,7 @@ func TestH2C(t *testing.T) {
 		require.NoError(t, err, "expandMessageXMD - maximum ell")
 	})
 
-	for _, suiteTest := range []h2cSuiteTestDef{
+	suiteTestDefs := []h2cSuiteTestDef{
 		{
 			n:    "Suite/secp256k1_XMD:SHA-256_SSWU_RO_",
 			file: "testdata/secp256k1_XMD_SHA-256_SSWU_RO_.json",
@@ -90,9 +91,10 @@ func TestH2C(t *testing.T) {
 			file: "testdata/secp256k1_XMD_SHA-256_SSWU_NU_.json",
 			fn:   Secp256k1_XMD_SHA256_SSWU_NU,
 		},
-	} {
+	}
+	for i, suiteTest := range suiteTestDefs {
 		t.Run(suiteTest.n, func(t *testing.T) {
-			testSuiteH2c(t, &suiteTest)
+			testSuiteH2c(t, &suiteTestDefs[i])
 		})
 	}
 
@@ -128,7 +130,7 @@ type h2cSuiteTestPoint struct {
 	Y string `json:"y"`
 }
 
-func (pt *h2cSuiteTestPoint) ToPoint(t *testing.T) (*secp256k1.Point, error) {
+func (pt *h2cSuiteTestPoint) ToPoint() (*secp256k1.Point, error) {
 	x := helpers.MustBytesFromHex(pt.X)
 	y := helpers.MustBytesFromHex(pt.Y)
 
@@ -148,7 +150,7 @@ func testSuiteH2c(t *testing.T, def *h2cSuiteTestDef) {
 
 	for i, vec := range testVectors.Vectors {
 		t.Run(fmt.Sprintf("TestCase/%d", i), func(t *testing.T) {
-			expectedP, err := vec.P.ToPoint(t)
+			expectedP, err := vec.P.ToPoint()
 			require.NoError(t, err, "P.ToPoint")
 
 			p, err := def.fn([]byte(testVectors.DST), []byte(vec.Msg))

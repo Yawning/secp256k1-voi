@@ -22,6 +22,7 @@ func TestUint64IsZero(t *testing.T) {
 		if v == 0 {
 			expected = 1
 		}
+
 		require.Equal(t, expected, Uint64IsZero(v), "Uint64IsZero(%d)", v)
 	}
 }
@@ -36,6 +37,7 @@ func TestUint64IsNonzero(t *testing.T) {
 		if v != 0 {
 			expected = 1
 		}
+
 		require.Equal(t, expected, Uint64IsNonzero(v), "Uint64IsNonzero(%d)", v)
 	}
 }

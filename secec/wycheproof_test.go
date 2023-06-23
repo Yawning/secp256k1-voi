@@ -125,7 +125,7 @@ type SignatureTestGroup struct {
 	Tests        []SignatureTestCase `json:"tests"`
 }
 
-type JsonWebKey struct {
+type JSONWebKey struct {
 	KeyType string `json:"kty"`
 	Crv     string `json:"crv"`
 	D       string `json:"d"`
@@ -133,7 +133,7 @@ type JsonWebKey struct {
 	Y       string `json:"y"`
 }
 
-func (jwk *JsonWebKey) IsBasicOk(t *testing.T) error {
+func (jwk *JSONWebKey) IsBasicOk(t *testing.T) error {
 	require.EqualValues(t, jwkKtyEc, jwk.KeyType, "kty")
 	if jwk.Crv != jwkCrvSecp256k1 {
 		return fmt.Errorf("jwk: unsupported curve: '%v'", jwk.Crv)
@@ -141,7 +141,7 @@ func (jwk *JsonWebKey) IsBasicOk(t *testing.T) error {
 	return nil
 }
 
-func (jwk *JsonWebKey) ToPublic(t *testing.T) (*PublicKey, error) {
+func (jwk *JSONWebKey) ToPublic(t *testing.T) (*PublicKey, error) {
 	if err := jwk.IsBasicOk(t); err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (jwk *JsonWebKey) ToPublic(t *testing.T) (*PublicKey, error) {
 	return publicKey, nil
 }
 
-func (jwk *JsonWebKey) ToPrivate(t *testing.T) (*PrivateKey, error) {
+func (jwk *JSONWebKey) ToPrivate(t *testing.T) (*PrivateKey, error) {
 	jwkPub, err := jwk.ToPublic(t)
 	require.NoError(t, err, "privateKey: jwk.ToPublic")
 
@@ -272,7 +272,7 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 		privateKey, err = NewPrivateKey(tmp)
 		require.NoError(t, err, "NewPrivateKey")
 	case encodingWebCrypto:
-		var publicJWK, privateJWK JsonWebKey
+		var publicJWK, privateJWK JSONWebKey
 		err = json.Unmarshal(tc.Public, &publicJWK)
 		require.NoError(t, err, "json.Unmarshal(tc.Public)")
 		err = json.Unmarshal(tc.Private, &privateJWK)
@@ -280,13 +280,13 @@ func (tc *DHTestCase) Run(t *testing.T, tg *DHTestGroup) {
 
 		publicKey, err = publicJWK.ToPublic(t)
 		if hasFlagBadPublic {
-			require.Error(t, err, "JsonWebKey.ToPublic: expected bad: %+v", tc.Flags)
+			require.Error(t, err, "JSONWebKey.ToPublic: expected bad: %+v", tc.Flags)
 			return
 		}
-		require.NoError(t, err, "JsonWebKey.ToPublic: %+v", tc.Flags)
+		require.NoError(t, err, "JSONWebKey.ToPublic: %+v", tc.Flags)
 
 		privateKey, err = privateJWK.ToPrivate(t)
-		require.NoError(t, err, "JsonWebKey.ToPrivate")
+		require.NoError(t, err, "JSONWebKey.ToPrivate")
 	default:
 		t.Fatalf("unknown encoding: '%s'", tg.Encoding)
 	}
@@ -462,11 +462,11 @@ func testWycheproofEcdh(t *testing.T, fn string) {
 	err = json.Unmarshal(testVectors.TestGroups, &groups)
 	require.NoError(t, err, "json.Unmarshal(testVectors.TestGroups)")
 
-	for _, group := range groups {
+	for i, group := range groups {
 		for _, testCase := range group.Tests {
 			n := fmt.Sprintf("TestCase/%d", testCase.ID)
 			t.Run(n, func(t *testing.T) {
-				testCase.Run(t, &group)
+				testCase.Run(t, &groups[i])
 			})
 			numTests++
 		}
@@ -506,7 +506,7 @@ func testWycheproofEcdsa(t *testing.T, fn string) {
 		for _, testCase := range group.Tests {
 			n := fmt.Sprintf("TestCase/%d", testCase.ID)
 			t.Run(n, func(t *testing.T) {
-				testCase.Run(t, publicKey, &group)
+				testCase.Run(t, publicKey, &groups[i])
 			})
 			numTests++
 		}

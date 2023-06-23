@@ -17,7 +17,7 @@ var readerRFC6979SHA256 = sentinelReaderRFC6979{}
 
 type sentinelReaderRFC6979 struct{}
 
-func (rd sentinelReaderRFC6979) Read(b []byte) (int, error) {
+func (rd sentinelReaderRFC6979) Read(_ []byte) (int, error) {
 	// This is just a placeholder so we know to instantiate
 	// a drbgRFC6979.
 	panic("secp256k1/secec: RFC6979SHA256().Read called")
@@ -29,7 +29,7 @@ func (rd sentinelReaderRFC6979) Read(b []byte) (int, error) {
 // using SHA-256 as the hash function, when strict output
 // compatibility with other implementations is required.
 //
-// This option is not otherwise required or recomended, and providing
+// This option is not otherwise required or recommended, and providing
 // an entropy source when available is likely better.
 //
 // WARNING: This returns a non-functional placeholder reader that

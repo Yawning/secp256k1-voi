@@ -56,12 +56,14 @@ var (
 	feN = field.NewElement().MustSetCanonicalBytes((*[field.ElementSize]byte)(nBytes))
 
 	errPointNotOnCurve = errors.New("secp256k1: point not on curve")
+	errInvalidEncoding = errors.New("secp256k1: invalid point encoding")
+	errInvalidPrefix   = errors.New("secp256k1: invalid encoded point prefix")
 )
 
 // UncompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
 // uncompressed or infinity encoding of `v`.
 func (v *Point) UncompressedBytes() []byte {
-	// Blah blah blah outline blah escape analysis blah.
+	// Blah outline blah escape analysis blah.
 	var dst [UncompressedPointSize]byte
 	return v.getUncompressedBytes(&dst)
 }
@@ -75,7 +77,7 @@ func (v *Point) getUncompressedBytes(dst *[UncompressedPointSize]byte) []byte {
 
 	scaled := newRcvr().rescale(v)
 
-	buf := append(dst[:0], prefixUncompressed)
+	buf := append(dst[:0], prefixUncompressed) //nolint:gocritic
 	buf = append(buf, scaled.x.Bytes()...)
 	buf = append(buf, scaled.y.Bytes()...)
 
@@ -85,7 +87,7 @@ func (v *Point) getUncompressedBytes(dst *[UncompressedPointSize]byte) []byte {
 // CompressedBytes returns the SEC 1, Version 2.0, Section 2.3.3
 // compressed or infinity encoding of `v`.
 func (v *Point) CompressedBytes() []byte {
-	// Blah blah blah outline blah escape analysis blah.
+	// Blah outline blah escape analysis blah.
 	var dst [CompressedPointSize]byte
 	return v.getCompressedBytes(&dst)
 }
@@ -105,7 +107,7 @@ func (v *Point) getCompressedBytes(dst *[CompressedPointSize]byte) []byte {
 		prefixCompressedEven,
 	)
 
-	buf := append(dst[:0], byte(y))
+	buf := append(dst[:0], byte(y)) //nolint:gocritic
 	buf = append(buf, scaled.x.Bytes()...)
 
 	return buf
@@ -117,10 +119,10 @@ func (v *Point) XBytes() ([]byte, error) {
 	assertPointsValid(v)
 
 	if v.IsIdentity() != 0 {
-		return nil, errors.New("secp256k1: point is the point at infinity")
+		return nil, errPointNotOnCurve
 	}
 
-	// Blah blah blah outline blah escape analysis blah.
+	// Blah outline blah escape analysis blah.
 	var dst [CoordSize]byte
 	return v.getXBytes(&dst)
 }
@@ -136,14 +138,14 @@ func (v *Point) getXBytes(dst *[CoordSize]byte) ([]byte, error) {
 // returns nil and an error, and the receiver is unchanged.
 func (v *Point) SetCompressedBytes(src []byte) (*Point, error) {
 	if len(src) != CompressedPointSize {
-		return nil, errors.New("secp256k1: incorrectly sized compressed point")
+		return nil, errInvalidEncoding
 	}
 
 	switch src[0] {
 	case prefixCompressedOdd:
 	case prefixCompressedEven:
 	default:
-		return nil, fmt.Errorf("secp256k1: invalid encoded point prefix: '%v'", src[0])
+		return nil, errInvalidPrefix
 	}
 
 	xBytes := (*[field.ElementSize]byte)(src[1:33])
@@ -154,7 +156,7 @@ func (v *Point) SetCompressedBytes(src []byte) (*Point, error) {
 
 	y, hasSqrt := field.NewElement().Sqrt(maybeYY(x))
 	if hasSqrt != 1 {
-		return nil, errors.New("secp256k1: point not on curve")
+		return nil, errPointNotOnCurve
 	}
 
 	yNeg := field.NewElement().Negate(y)
@@ -174,11 +176,11 @@ func (v *Point) SetCompressedBytes(src []byte) (*Point, error) {
 // returns nil and an error, and the receiver is unchanged.
 func (v *Point) SetUncompressedBytes(src []byte) (*Point, error) {
 	if len(src) != UncompressedPointSize {
-		return nil, errors.New("secp256k1: incorrectly sized uncompressed point")
+		return nil, errInvalidEncoding
 	}
 
 	if src[0] != prefixUncompressed {
-		return nil, fmt.Errorf("secp256k1: invalid encoded point prefix: '%v'", src[0])
+		return nil, errInvalidPrefix
 	}
 
 	xBytes := (*[field.ElementSize]byte)(src[1:33])
@@ -213,7 +215,7 @@ func (v *Point) SetBytes(src []byte) (*Point, error) {
 	switch len(src) {
 	case IdentityPointSize:
 		if src[0] != prefixIdentity {
-			return nil, errors.New("secp256k1: unknown point encoding")
+			return nil, errInvalidPrefix
 		}
 		v.Identity()
 		return v, nil
@@ -223,7 +225,7 @@ func (v *Point) SetBytes(src []byte) (*Point, error) {
 		return v.SetUncompressedBytes(src)
 	}
 
-	return nil, errors.New("secp256k1: malformed point encoding")
+	return nil, errInvalidEncoding
 }
 
 // NewPointFromBytes creates a new Point from either of the SEC 1
@@ -245,7 +247,7 @@ func RecoverPoint(xScalar *Scalar, recoveryID byte) (*Point, error) {
 	}
 
 	// The 0th bit indicates if the y-coordinate was odd.
-	yIsOdd := byte(recoveryID & 1)
+	yIsOdd := recoveryID & 1
 
 	xFe, err := field.NewElementFromCanonicalBytes((*[field.ElementSize]byte)(xScalar.Bytes()))
 	if err != nil {

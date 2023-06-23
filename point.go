@@ -43,8 +43,8 @@ func (v *Point) Identity() *Point {
 	v.x.Zero()
 	v.y.One()
 	v.z.Zero()
-
 	v.isValid = true
+
 	return v
 }
 
@@ -53,8 +53,8 @@ func (v *Point) Generator() *Point {
 	v.x.Set(feGX)
 	v.y.Set(feGY)
 	v.z.One()
-
 	v.isValid = true
+
 	return v
 }
 
@@ -63,8 +63,8 @@ func (v *Point) Add(p, q *Point) *Point {
 	assertPointsValid(p, q)
 
 	v.addComplete(p, q)
-
 	v.isValid = p.isValid && q.isValid
+
 	return v
 }
 
@@ -74,8 +74,8 @@ func (v *Point) Double(p *Point) *Point {
 	assertPointsValid(p)
 
 	v.doubleComplete(p)
-
 	v.isValid = p.isValid
+
 	return v
 }
 
@@ -93,8 +93,8 @@ func (v *Point) Negate(p *Point) *Point {
 	v.x.Set(&p.x)
 	v.y.Negate(&p.y)
 	v.z.Set(&p.z)
-
 	v.isValid = p.isValid
+
 	return v
 }
 
@@ -106,8 +106,8 @@ func (v *Point) ConditionalNegate(p *Point, ctrl uint64) *Point {
 	v.x.Set(&p.x)
 	v.y.ConditionalNegate(&p.y, ctrl)
 	v.z.Set(&p.z)
-
 	v.isValid = p.isValid
+
 	return v
 }
 
@@ -126,6 +126,7 @@ func (v *Point) uncheckedConditionalSelect(a, b *Point, ctrl uint64) *Point {
 	v.x.ConditionalSelect(&a.x, &b.x, ctrl)
 	v.y.ConditionalSelect(&a.y, &b.y, ctrl)
 	v.z.ConditionalSelect(&a.z, &b.z, ctrl)
+
 	return v
 }
 
@@ -155,6 +156,7 @@ func (v *Point) IsYOdd() uint64 {
 	assertPointsValid(v)
 
 	scaled := newRcvr().rescale(v) // XXX/perf: Don't need to rescale X.
+
 	return scaled.y.IsOdd()
 }
 

@@ -44,6 +44,7 @@ func (tbl *projectivePointMultTable) SelectAndAddVartime(sum *Point, idx uint64)
 	if idx == 0 {
 		return sum
 	}
+
 	return sum.addComplete(sum, &tbl[idx-1])
 }
 
@@ -154,6 +155,7 @@ var generatorOddAffineTable = func() *[ScalarSize]affinePointMultTable {
 			tbl[i][j].y.Set(&fromTbl[fromIdx].y)
 		}
 	}
+
 	return tbl
 }()
 
