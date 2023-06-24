@@ -47,7 +47,7 @@ func (fe *Element) SetWideBytes(src []byte) *Element {
 		//
 		// "I represent the value as a+b*2^192+c*2^384"
 
-		// First ensure that we are working with a 512-bit big-endian value.
+		// Zero extend to 512-bits.
 		var src512 [WideElementSize]byte
 		copy(src512[WideElementSize-sLen:], src)
 
@@ -64,15 +64,19 @@ func (fe *Element) SetWideBytes(src []byte) *Element {
 }
 
 func (fe *Element) setShortBytes(src []byte) *Element {
+	// Invariant: sLen < ElementSize, so src < n.
 	sLen := len(src)
-	if sLen > ElementSize {
+	if sLen >= ElementSize {
 		panic("internal/field: short element too wide")
 	}
 
+	// Zero extend to 256-bits.
 	var src256 [ElementSize]byte
 	copy(src256[ElementSize-sLen:], src)
 
-	return fe.MustSetCanonicalBytes(&src256)
+	// Unchecked set (s < n).
+	sat := helpers.BytesToSaturated(&src256)
+	return fe.uncheckedSetSaturated(&sat)
 }
 
 func reduceSaturated(dst, src *[4]uint64) uint64 {
