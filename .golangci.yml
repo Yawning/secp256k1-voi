@@ -41,7 +41,6 @@ linters:
     - importas
     - interfacebloat
     - ireturn
-    - maintidx
     - makezero
     - mirror
     - misspell
@@ -81,10 +80,11 @@ linters:
     # - testpackage
     # - wsl              # Nice idea, not how I like to write code.
 
-    # Disabled: Annoying
+    # Disabled: Annoying/Useless
     # - cyclop
     # - gocognit
     # - gocyclo
+    # - maintidx
     # - wrapcheck
 
     # Disabled: Irrelevant/redundant
