@@ -5,25 +5,31 @@
 // Package bitcoin implements the bitcoin specific primitives.
 package bitcoin
 
-import "gitlab.com/yawning/secp256k1-voi/secec"
+import (
+	"crypto"
+	_ "crypto/sha256" // Pull in SHA256
+
+	"gitlab.com/yawning/secp256k1-voi/secec"
+)
+
+var optsShitcoin = &secec.ECDSAOptions{
+	Hash:            crypto.SHA256,
+	Encoding:        secec.EncodingASN1,
+	RejectMalleable: true,
+}
 
 // VerifyASN1 verifies the BIP-0066 encoded signature `sig` of
-// `hash`, using the PublicKey `k`, using the verification procedure
+// `digest`, using the PublicKey `k`, using the verification procedure
 // as specified in SEC 1, Version 2.0, Section 4.1.4, with the
 // additional restriction that `s` MUST be less than or equal
 // to `n / 2`. Its return value records whether the signature
 // is valid.
 //
 // Note: The signature MUST have the trailing `sighash` byte.
-func VerifyASN1(k *secec.PublicKey, hash, sig []byte) bool {
-	r, s, err := parseASN1SignatureShitcoin(sig)
-	if err != nil {
+func VerifyASN1(k *secec.PublicKey, digest, sig []byte) bool {
+	if !IsValidSignatureEncodingBIP0066(sig) {
 		return false
 	}
 
-	if s.IsGreaterThanHalfN() != 0 {
-		return false
-	}
-
-	return k.VerifyRaw(hash, r, s)
+	return k.Verify(digest, sig[:len(sig)-1], optsShitcoin)
 }

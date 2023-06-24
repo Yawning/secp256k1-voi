@@ -4,15 +4,7 @@
 
 package bitcoin
 
-import (
-	"encoding/asn1"
-	"errors"
-
-	"gitlab.com/yawning/secp256k1-voi"
-	"gitlab.com/yawning/secp256k1-voi/secec"
-)
-
-var errInvalidBIP0066Sig = errors.New("secp256k1/secec/bitcoin: invalid BIP-0066 signature")
+import "encoding/asn1"
 
 // IsValidSignatureEncodingBIP0066 returns true iff `data` is encoded
 // per BIP-0066, including the trailing `sighash` byte.
@@ -120,12 +112,4 @@ func IsValidSignatureEncodingBIP0066(data []byte) bool {
 	}
 
 	return true
-}
-
-func parseASN1SignatureShitcoin(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
-	if !IsValidSignatureEncodingBIP0066(data) {
-		return nil, nil, errInvalidBIP0066Sig
-	}
-
-	return secec.ParseASN1Signature(data[:len(data)-1]) // Ignore the sighash
 }

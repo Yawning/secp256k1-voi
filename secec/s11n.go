@@ -146,9 +146,41 @@ func ParseCompactSignature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, e
 // BuildCompactSignature serializes `(r, s)` into a "compact" `[R | S]`
 // signature.
 func BuildCompactSignature(r, s *secp256k1.Scalar) []byte {
-	// Allocates assuming `[R | S | V]`, so that later appending `v`
-	// doesn't cause a realloc.
-	dst := make([]byte, 0, CompactRecoverableSignatureSize)
+	return buildCompactSignature(r, s, false)
+}
+
+// ParseCompactRecoverableSignature parses a "compact" `[R | S | V]`
+// signature, and returns the scalars `(r, s)` and recovery ID `v`.
+// Both `r` and `s` MUST be in the range `[1, n)`.  `v` MUST be in
+// the range `[0,3]`.
+func ParseCompactRecoverableSignature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
+	if len(data) != CompactRecoverableSignatureSize {
+		return nil, nil, 0, errInvalidCompactSig
+	}
+
+	r, s, err := ParseCompactSignature(data[:CompactSignatureSize])
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	v := data[CompactSignatureSize]
+
+	return r, s, v, nil
+}
+
+// BuildCompactRecoverableSignature serializes `(r, s, v)` into a
+// "compact" `[R | S | V]` signature.
+func BuildCompactRecoverableSignature(r, s *secp256k1.Scalar, v byte) []byte {
+	dst := buildCompactSignature(r, s, true)
+	dst = append(dst, v)
+	return dst
+}
+
+func buildCompactSignature(r, s *secp256k1.Scalar, allocV bool) []byte {
+	l := CompactSignatureSize
+	if allocV {
+		l = CompactRecoverableSignatureSize
+	}
+	dst := make([]byte, 0, l)
 	dst = append(dst, r.Bytes()...)
 	dst = append(dst, s.Bytes()...)
 

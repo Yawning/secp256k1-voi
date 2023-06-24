@@ -69,21 +69,21 @@ func TestSecec(t *testing.T) {
 		sig, err := signer.Sign(rand.Reader, testMessageHash, nil)
 		require.NoError(t, err, "Sign")
 
-		ok := pub.VerifyASN1(testMessageHash, sig)
-		require.True(t, ok, "VerifyASN1")
+		ok := pub.Verify(testMessageHash, sig, nil)
+		require.True(t, ok, "Verify")
 
 		tmp := bytes.Clone(sig)
 		tmp[0] ^= 0x69
-		ok = pub.VerifyASN1(testMessageHash, tmp)
-		require.False(t, ok, "VerifyASN1 - Corrupted sig")
+		ok = pub.Verify(testMessageHash, tmp, nil)
+		require.False(t, ok, "Verify - Corrupted sig")
 
 		tmp = bytes.Clone(testMessageHash)
 		tmp[0] ^= 0x69
-		ok = pub.VerifyASN1(tmp, sig)
-		require.False(t, ok, "VerifyASN1 - Corrupted h")
+		ok = pub.Verify(tmp, sig, nil)
+		require.False(t, ok, "Verify - Corrupted h")
 
-		ok = pub.VerifyASN1(testMessageHash[:5], sig)
-		require.False(t, ok, "VerifyASN1 - Truncated h")
+		ok = pub.Verify(testMessageHash[:5], sig, nil)
+		require.False(t, ok, "Verify - Truncated h")
 
 		// Test the various encodings.
 		r, s, v, err := priv.SignRaw(RFC6979SHA256(), testMessageHash)
@@ -100,6 +100,9 @@ func TestSecec(t *testing.T) {
 		compactSig, err := priv.Sign(RFC6979SHA256(), testMessageHash, opts)
 		require.NoError(t, err, "Sign - Compact")
 		require.EqualValues(t, BuildCompactSignature(r, s), compactSig)
+
+		ok = pub.Verify(testMessageHash, compactSig, opts)
+		require.True(t, ok, "Verify - Compact")
 
 		compR, compS, err := ParseCompactSignature(compactSig)
 		require.NoError(t, err, "ParseCompactSignature")
@@ -123,6 +126,10 @@ func TestSecec(t *testing.T) {
 		require.Nil(t, badSig, "Sign - Truncated hash")
 		require.ErrorIs(t, err, errInvalidDigest, "Sign - Truncated hash")
 
+		opts.Encoding = EncodingASN1
+		ok = pub.Verify(testMessageHash[:30], sig, opts)
+		require.False(t, ok, "Verify - Truncated hash")
+
 		badSig, err = priv.Sign(rand.Reader, testMessageHash, crypto.SHA512)
 		require.Nil(t, badSig, "Sign - Truncated hash")
 		require.ErrorIs(t, err, errInvalidDigest, "Sign - Truncated hash, opts")
@@ -131,6 +138,9 @@ func TestSecec(t *testing.T) {
 		badSig, err = priv.Sign(rand.Reader, testMessageHash, opts)
 		require.Nil(t, badSig, "Sign - Bad encoding")
 		require.ErrorIs(t, err, errInvalidEncoding, "Sign - Bad encoding")
+
+		ok = pub.Verify(testMessageHash, sig, opts)
+		require.False(t, ok, "Verify - Bad encoding")
 
 		_, _, err = ParseCompactSignature(compactSig[:15])
 		require.ErrorIs(t, err, errInvalidCompactSig, "ParseCompactSignature - truncated")
@@ -158,14 +168,22 @@ func TestSecec(t *testing.T) {
 		sig, err := priv.Sign(rand.Reader, testMessageHash, opts)
 		require.NoError(t, err, "Sign")
 
-		r, s, err := ParseCompactSignature(sig[:CompactSignatureSize])
+		pub := priv.PublicKey()
+
+		ok := pub.Verify(testMessageHash, sig, opts)
+		require.True(t, ok, "Verify")
+
+		tmp := bytes.Clone(sig)
+		tmp[64] = 27 // Fuck your unregistered securities.
+		ok = pub.Verify(testMessageHash, tmp, opts)
+		require.False(t, ok, "Verify - Bad sig")
+
+		r, s, v, err := ParseCompactRecoverableSignature(sig)
 		require.NoError(t, err, "ParseCompactSignature")
-		v := sig[CompactSignatureSize]
 
 		q, err := RecoverPublicKey(testMessageHash, r, s, v)
 		require.NoError(t, err, "RecoverPublicKey")
-
-		require.True(t, priv.PublicKey().Equal(q))
+		require.True(t, pub.Equal(q))
 
 		// Test some pathological cases.
 		var zero secp256k1.Scalar
@@ -332,12 +350,12 @@ func BenchmarkSecec(b *testing.B) {
 				_ = randomPub.Bytes()
 			}
 		})
-		b.Run("VerifyASN1", func(b *testing.B) {
+		b.Run("Verify", func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				ok := randomPub.VerifyASN1(testMessageHash, randomSig)
+				ok := randomPub.Verify(testMessageHash, randomSig, nil)
 				require.True(b, ok)
 			}
 		})

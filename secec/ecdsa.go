@@ -68,6 +68,10 @@ type ECDSAOptions struct {
 	// WARNING: If this is set, signing will be significantly more
 	// expensive.
 	SelfVerify bool
+
+	// RejectMalleable will cause the verification process to
+	// reject signatures where `s > n / 2`.
+	RejectMalleable bool
 }
 
 // HashFunc returns an identifier for the hash function used to produce
@@ -129,9 +133,7 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 	case EncodingCompact:
 		return BuildCompactSignature(r, s), nil
 	case EncodingCompactRecoverable:
-		sig := BuildCompactSignature(r, s)
-		sig = append(sig, v)
-		return sig, nil
+		return BuildCompactRecoverableSignature(r, s, v), nil
 	}
 
 	return nil, errInvalidEncoding
@@ -149,38 +151,86 @@ func (k *PrivateKey) SignRaw(rand io.Reader, digest []byte) (*secp256k1.Scalar, 
 	return sign(rand, k, digest)
 }
 
-// VerifyRaw verifies the `(r, s)` signature of `hash`, using the
-// PublicKey `k`, using the verification procedure as specified in
-// SEC 1, Version 2.0, Section 4.1.4.  Its return value records
-// whether the signature is valid.
-func (k *PublicKey) VerifyRaw(hash []byte, r, s *secp256k1.Scalar) bool {
-	return nil == verify(k, hash, r, s)
-}
-
-// VerifyASN1 verifies the ASN.1 encoded signature `sig` of `hash`,
+// Verify verifies the byte encoded signature `sig` of `digest`,
 // using the PublicKey `k`, using the verification procedure as specified
 // in SEC 1, Version 2.0, Section 4.1.4.  Its return value records
-// whether the signature is valid.
-//
-// Note: The signature MUST be `SEQUENCE { r INTEGER, s INTEGER }`,
-// as in encoded as a `ECDSA-Sig-Value`, WITHOUT the optional `a` and
-// `y` fields.
-func (k *PublicKey) VerifyASN1(hash, sig []byte) bool {
-	r, s, err := ParseASN1Signature(sig)
+// whether the signature is valid.  If `opts` is nil, the input encoding
+// will default to `EncodingASN1`, and `s` in the range `[1,n)` will
+// be accepted.
+func (k *PublicKey) Verify(digest, sig []byte, opts *ECDSAOptions) bool {
+	// Assume default parameters.
+	sigEncoding := EncodingASN1
+	rejectMalleable := false
+
+	if opts != nil {
+		hashFn := opts.Hash
+		sigEncoding = opts.Encoding
+		rejectMalleable = opts.RejectMalleable
+		if hashFn == crypto.Hash(0) {
+			hashFn = crypto.SHA256
+		}
+
+		// Check that the digest is sized correctly.
+		expectedLen := hashFn.Size()
+		if len(digest) != expectedLen {
+			return false
+		}
+	}
+
+	var (
+		r, s *secp256k1.Scalar
+		v    byte
+
+		err error
+	)
+
+	switch sigEncoding {
+	case EncodingASN1:
+		r, s, err = ParseASN1Signature(sig)
+	case EncodingCompact:
+		r, s, err = ParseCompactSignature(sig)
+	case EncodingCompactRecoverable:
+		r, s, v, err = ParseCompactRecoverableSignature(sig)
+	default:
+		err = errInvalidEncoding
+	}
 	if err != nil {
 		return false
 	}
 
-	return k.VerifyRaw(hash, r, s)
+	if rejectMalleable && s.IsGreaterThanHalfN() != 0 {
+		return false
+	}
+
+	switch sigEncoding {
+	case EncodingASN1, EncodingCompact:
+		return k.VerifyRaw(digest, r, s)
+	case EncodingCompactRecoverable:
+		q, err := RecoverPublicKey(digest, r, s, v)
+		if err != nil {
+			return false
+		}
+		return k.Equal(q)
+	}
+
+	panic("secp256k1/secec: BUG: NOT REACHED")
+}
+
+// VerifyRaw verifies the `(r, s)` signature of `digest`, using the
+// PublicKey `k`, using the verification procedure as specified in
+// SEC 1, Version 2.0, Section 4.1.4.  Its return value records
+// whether the signature is valid.
+func (k *PublicKey) VerifyRaw(digest []byte, r, s *secp256k1.Scalar) bool {
+	return nil == verify(k, digest, r, s)
 }
 
 // RecoverPublicKey recovers the public key from the signature
-// `(r, s, recoveryID)` over `hash`.  `recoverID` MUST be in the range
+// `(r, s, recoveryID)` over `digest`.  `recoverID` MUST be in the range
 // `[0,3]`.
 //
 // Note: `s` in the range `[1, n)` is considered valid here.  It is the
 // caller's responsibility to check `s.IsGreaterThanHalfN()` as required.
-func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*PublicKey, error) {
+func RecoverPublicKey(digest []byte, r, s *secp256k1.Scalar, recoveryID byte) (*PublicKey, error) {
 	if r.IsZero() != 0 || s.IsZero() != 0 {
 		return nil, errInvalidRorS
 	}
@@ -201,7 +251,7 @@ func RecoverPublicKey(hash []byte, r, s *secp256k1.Scalar, recoveryID byte) (*Pu
 
 	// 1.5. Compute e from M using Steps 2 and 3 of ECDSA signature verification.
 
-	e, err := hashToScalar(hash)
+	e, err := hashToScalar(digest)
 	if err != nil {
 		return nil, err
 	}

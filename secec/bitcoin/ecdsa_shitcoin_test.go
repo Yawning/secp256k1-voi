@@ -42,7 +42,7 @@ func TestECDSA(t *testing.T) {
 	sigBytes = secec.BuildASN1Signature(r, s)
 
 	// Verifying with SEC semantics should succeed.
-	ok = pub.VerifyASN1(hBytes, sigBytes)
+	ok = pub.Verify(hBytes, sigBytes, nil)
 	require.True(t, ok, "Verify - ECDSA large S")
 
 	// Verifying with shitcoin semantics should fail.

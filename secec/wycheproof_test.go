@@ -329,7 +329,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 
 	mustFail := tc.Result != resultValid
 
-	sigOk := publicKey.VerifyASN1(hBytes, sigBytes)
+	sigOk := publicKey.Verify(hBytes, sigBytes, nil)
 	require.EqualValues(t, !mustFail, sigOk, "one-shot signature verification: %+v", tc.Flags)
 
 	// Convert flags to expected error (or lack-thereof).

@@ -7,6 +7,7 @@ package bitcoin
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -15,7 +16,10 @@ import (
 
 	"gitlab.com/yawning/secp256k1-voi"
 	"gitlab.com/yawning/secp256k1-voi/internal/helpers"
+	"gitlab.com/yawning/secp256k1-voi/secec"
 )
+
+var errInvalidBIP0066Sig = errors.New("secp256k1/secec/bitcoin: invalid BIP-0066 signature")
 
 type bip0066ValidCase struct {
 	DER string `json:"DER"`
@@ -97,4 +101,12 @@ func TestBIP0066(t *testing.T) {
 			require.ErrorIs(t, err, errInvalidBIP0066Sig, "parseASN1SignatureShitcoin")
 		})
 	}
+}
+
+func parseASN1SignatureShitcoin(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
+	if !IsValidSignatureEncodingBIP0066(data) {
+		return nil, nil, errInvalidBIP0066Sig
+	}
+
+	return secec.ParseASN1Signature(data[:len(data)-1]) // Ignore the sighash
 }
