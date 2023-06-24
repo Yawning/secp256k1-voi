@@ -128,14 +128,6 @@ func (k *PublicKey) Equal(x crypto.PublicKey) bool {
 	return subtle.ConstantTimeCompare(k.pointBytes, other.pointBytes) == 1
 }
 
-// IsYOdd returns true iff the y-coordinate of the PublicKey is odd.
-func (k *PublicKey) IsYOdd() bool {
-	// Since the PublicKey caches the uncompressed point, this
-	// is simple and fast.
-	_, yIsOdd := secp256k1.SplitUncompressedPoint(k.pointBytes)
-	return yIsOdd != 0
-}
-
 // GenerateKey generates a new PrivateKey, using [crypto/rand.Reader]
 // as the entropy source.
 func GenerateKey() (*PrivateKey, error) {

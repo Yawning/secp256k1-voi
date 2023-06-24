@@ -179,7 +179,7 @@ func TestSecec(t *testing.T) {
 		require.False(t, ok, "Verify - Bad sig")
 
 		r, s, v, err := ParseCompactRecoverableSignature(sig)
-		require.NoError(t, err, "ParseCompactSignature")
+		require.NoError(t, err, "ParseCompactRecoverableSignature")
 
 		q, err := RecoverPublicKey(testMessageHash, r, s, v)
 		require.NoError(t, err, "RecoverPublicKey")
@@ -187,6 +187,15 @@ func TestSecec(t *testing.T) {
 
 		// Test some pathological cases.
 		var zero secp256k1.Scalar
+		_, _, _, err = ParseCompactRecoverableSignature(sig[:CompactSignatureSize])
+		require.ErrorIs(t, err, errInvalidCompactSig, "ParseCompactRecoverableSignature - truncated")
+		badSig := BuildCompactRecoverableSignature(&zero, s, v)
+		_, _, _, err = ParseCompactRecoverableSignature(badSig)
+		require.ErrorIs(t, err, errInvalidScalar, "ParseCompactRecoverableSignature - Zero r")
+		badSig = BuildCompactRecoverableSignature(r, &zero, v)
+		_, _, _, err = ParseCompactRecoverableSignature(badSig)
+		require.ErrorIs(t, err, errInvalidScalar, "ParseCompactRecoverableSignature - Zero s")
+
 		_, err = RecoverPublicKey(testMessageHash, &zero, s, v)
 		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero r")
 		_, err = RecoverPublicKey(testMessageHash, r, &zero, v)
@@ -236,16 +245,11 @@ func TestSecec(t *testing.T) {
 			gotOdd = gotOdd || isOdd
 			gotEven = gotEven || (!isOdd)
 
-			require.Equal(t, isOdd, pub.IsYOdd())
 			require.Equal(t, pub.Point().CompressedBytes(), pub.CompressedBytes())
 
 			i++
 		}
 		t.Logf("%d iters to see both odd and even Y", i+1)
-
-		require.Panics(t, func() {
-			new(PublicKey).IsYOdd()
-		}, "uninitialized.IsYOdd()")
 	})
 	t.Run("Internal/sampleRandomScalar", func(t *testing.T) {
 		// All-zero entropy source should cause the rejection sampling
