@@ -94,6 +94,7 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 	sigEncoding := EncodingASN1
 	selfVerify := false // XXX: Should this default to true?
 
+	var verOpts *ECDSAOptions
 	if opts != nil {
 		hashFn := opts.HashFunc()
 		// Override the defaults.
@@ -103,6 +104,7 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 			if hashFn == crypto.Hash(0) {
 				hashFn = crypto.SHA256
 			}
+			verOpts = o
 		}
 
 		// Check that the digest is sized correctly.
@@ -117,26 +119,30 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 		return nil, err
 	}
 
+	var sig []byte
+	switch sigEncoding {
+	case EncodingASN1:
+		sig = BuildASN1Signature(r, s)
+	case EncodingCompact:
+		sig = BuildCompactSignature(r, s)
+	case EncodingCompactRecoverable:
+		sig = BuildCompactRecoverableSignature(r, s, v)
+	default:
+		// "Why, yes, this is after SignRaw. Don't do that then."
+		return nil, errInvalidEncoding
+	}
+
 	if selfVerify {
 		// XXX/perf: It is faster to verify your own signature,
 		// since the private key is available.
-		ok := k.PublicKey().VerifyRaw(digest, r, s)
+		ok := k.PublicKey().Verify(digest, sig, verOpts)
 		if !ok {
 			// This is really hard to test since it's hard to force faults.
 			return nil, errSigCheckFailed
 		}
 	}
 
-	switch sigEncoding {
-	case EncodingASN1:
-		return BuildASN1Signature(r, s), nil
-	case EncodingCompact:
-		return BuildCompactSignature(r, s), nil
-	case EncodingCompactRecoverable:
-		return BuildCompactRecoverableSignature(r, s, v), nil
-	}
-
-	return nil, errInvalidEncoding
+	return sig, nil
 }
 
 // SignRaw signs `digest` (which should be the result of hashing a larger
