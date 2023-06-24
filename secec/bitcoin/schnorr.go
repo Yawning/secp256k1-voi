@@ -108,7 +108,7 @@ func (k *SchnorrPrivateKey) PublicKey() *SchnorrPublicKey {
 // signature.
 //
 // Note: If `rand` is nil, the [crypto/rand.Reader] will be used.
-func (k *SchnorrPrivateKey) Sign(rand io.Reader, msg []byte) ([]byte, error) {
+func (k *SchnorrPrivateKey) Sign(rand io.Reader, msg []byte, _ crypto.SignerOpts) ([]byte, error) {
 	// BIP-0340 cautions about how deterministic nonce creation a la
 	// RFC6979 can lead to key compromise if the same key is shared
 	// between ECDSA and Schnorr signatures due to nonce reuse.

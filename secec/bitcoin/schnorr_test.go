@@ -6,6 +6,7 @@ package bitcoin
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -33,6 +34,8 @@ func TestSchnorr(t *testing.T) {
 		priv, err := GenerateSchnorrKey()
 		require.NoError(t, err, "GenerateSchnorrKey")
 
+		signer := crypto.Signer(priv)
+
 		pub := priv.PublicKey()
 
 		preHashedMsg, err := PreHashSchnorrMessage(
@@ -43,7 +46,7 @@ func TestSchnorr(t *testing.T) {
 
 		d := priv.d
 
-		sig, err := priv.Sign(nil, preHashedMsg)
+		sig, err := signer.Sign(nil, preHashedMsg, nil)
 		require.NoError(t, err, "Sign")
 
 		ok := pub.Verify(preHashedMsg, sig)
@@ -77,7 +80,7 @@ func TestSchnorr(t *testing.T) {
 		require.False(t, pub.Equal(pubNist), "pub.Equal(pubNist)")
 
 		require.Panics(t, func() {
-			_, _ = priv.Sign(secec.RFC6979SHA256(), preHashedMsg)
+			_, _ = priv.Sign(secec.RFC6979SHA256(), preHashedMsg, nil)
 		})
 
 		_, err = NewSchnorrPrivateKey([]byte("super sekrit key"))
@@ -104,7 +107,7 @@ func TestSchnorr(t *testing.T) {
 		priv, err := GenerateSchnorrKey()
 		require.NoError(t, err, "GenerateSchnorrKey")
 
-		badSig, err := priv.Sign(newBadReader(7), []byte("any message"))
+		badSig, err := priv.Sign(newBadReader(7), []byte("any message"), nil)
 		require.Nil(t, badSig, "SignSchnorr - badReader")
 		require.ErrorIs(t, err, errEntropySource, "SignSchnorr - badReader")
 	})
@@ -121,7 +124,7 @@ func BenchmarkSchnorr(b *testing.B) {
 	require.NoError(b, err)
 
 	randomPub := randomPriv.PublicKey()
-	randomSig, err := randomPriv.Sign(rand.Reader, preHashedMsg)
+	randomSig, err := randomPriv.Sign(rand.Reader, preHashedMsg, nil)
 	require.NoError(b, err)
 
 	b.Run("Sign", func(b *testing.B) {
@@ -129,7 +132,7 @@ func BenchmarkSchnorr(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, _ = randomPriv.Sign(rand.Reader, preHashedMsg)
+			_, _ = randomPriv.Sign(rand.Reader, preHashedMsg, nil)
 		}
 	})
 	b.Run("Verify", func(b *testing.B) {
