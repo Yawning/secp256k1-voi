@@ -203,9 +203,9 @@ func testEcdsaK(t *testing.T) {
 		require.Nil(t, rng, "mitigateDebianAndSony - badReader")
 		require.ErrorIs(t, err, errEntropySource, "mitigateDebianAndSony - badReader")
 
-		badSig, err := testKey.SignASN1(newBadReader(27), msg1Hash)
-		require.Nil(t, badSig, "SignASN1 - badReader")
-		require.ErrorIs(t, err, errEntropySource, "SignASN1 - badReader")
+		badSig, err := testKey.Sign(newBadReader(27), msg1Hash, nil)
+		require.Nil(t, badSig, "Sign - badReader")
+		require.ErrorIs(t, err, errEntropySource, "Sign - badReader")
 	})
 
 	t.Run("RFC6979/SHA256/TestVectors", testRFC6979KAT)
@@ -269,10 +269,10 @@ func testRFC6979KAT(t *testing.T) {
 			privKey, err := NewPrivateKey(privBytes[:])
 			require.NoError(t, err, "NewPrivateKey")
 
-			sig, err := privKey.SignASN1(RFC6979SHA256(), hashMsgForTests([]byte(vec[fieldMessage])))
-			require.NoError(t, err, "SignASN1")
+			sig, err := privKey.Sign(RFC6979SHA256(), hashMsgForTests([]byte(vec[fieldMessage])), nil)
+			require.NoError(t, err, "Sign")
 
-			require.Equal(t, vec[fieldSignature], strings.ToUpper(hex.EncodeToString(sig)), "SignASN1 - RFC6979")
+			require.Equal(t, vec[fieldSignature], strings.ToUpper(hex.EncodeToString(sig)), "Sign - RFC6979")
 		})
 	}
 }

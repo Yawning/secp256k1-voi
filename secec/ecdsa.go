@@ -5,6 +5,7 @@
 package secec
 
 import (
+	"crypto"
 	csrand "crypto/rand"
 	"errors"
 	"fmt"
@@ -22,17 +23,121 @@ const (
 )
 
 var (
-	errInvalidScalar = errors.New("secp256k1/secec: invalid scalar")
-	errInvalidDigest = errors.New("secp256k1/secec: invalid digest")
-	errInvalidRorS   = errors.New("secp256k1/secec: r or s is zero")
-	errRIsInfinity   = errors.New("secp256k1/secec: R is the point at infinity")
-	errVNeqR         = errors.New("secp256k1/secec: v does not equal r")
+	errInvalidEncoding = errors.New("secp256k1/secec: invalid signature encoding")
+	errInvalidScalar   = errors.New("secp256k1/secec: invalid scalar")
+	errInvalidDigest   = errors.New("secp256k1/secec: invalid digest")
+	errInvalidRorS     = errors.New("secp256k1/secec: r or s is zero")
+	errRIsInfinity     = errors.New("secp256k1/secec: R is the point at infinity")
+	errVNeqR           = errors.New("secp256k1/secec: v does not equal r")
+	errSigCheckFailed  = errors.New("secp256k1/secec: failed to verify new sig")
 
 	errEntropySource     = errors.New("secp256k1/secec: entropy source failure")
 	errRejectionSampling = errors.New("secp256k1/secec: failed rejection sampling")
 )
 
-// SignRaw signs `hash` (which should be the result of hashing a larger
+// SignatureEncoding is a ECDSA signature encoding method.
+type SignatureEncoding int
+
+const (
+	// EncodingASN1 is an ASN.1 `SEQUENCE { r INTEGER, s INTEGER}`.
+	EncodingASN1 SignatureEncoding = iota
+	// EncodingCompact is `[R | S]`, with the scalars encoded as
+	// 32-byte big-endian integers.
+	EncodingCompact
+	// EncodingCompactRecoverable is `[R | S | V]`, with the scalars
+	// encoded as 32-byte big-endian integers, and `V` being in the
+	// range `[0,3]`.
+	EncodingCompactRecoverable
+)
+
+// ECDSAOptions can be used with `PrivateKey.Sign` or `PublicKey.Verify`
+// to select ECDSA options.
+type ECDSAOptions struct {
+	// Hash is the digest algorithm used to hash the digest.  It is
+	// used only for the purpose of validating input parameters.  If
+	// unspecified, [crypto.SHA256] will be assumed.
+	Hash crypto.Hash
+
+	// Encoding selects the signature encoding format.
+	Encoding SignatureEncoding
+
+	// SelfVerify will cause the signing process to verify the
+	// signature after signing, to improve resilience against certain
+	// fault attacks.
+	//
+	// WARNING: If this is set, signing will be significantly more
+	// expensive.
+	SelfVerify bool
+}
+
+// HashFunc returns an identifier for the hash function used to produce
+// the message passed to [crypto.Signer.Sign], or else zero to indicate
+// that no hashing was done.
+func (opt *ECDSAOptions) HashFunc() crypto.Hash {
+	return opt.Hash
+}
+
+// Sign signs `digest` (which should be the result of hashing a larger
+// message) using the PrivateKey `k`, using the signing procedure
+// as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
+// byte-encoded signature.  If `opts` is not a `*ECDSAOptions` the
+// output encoding will default to `EncodingASN1`.
+//
+// Notes: If `rand` is nil, the [crypto/rand.Reader] will be used.
+// `s` will always be less than or equal to `n / 2`.
+func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+	// Assume default parameters.
+	sigEncoding := EncodingASN1
+	selfVerify := false // XXX: Should this default to true?
+
+	if opts != nil {
+		hashFn := opts.HashFunc()
+		// Override the defaults.
+		if o, ok := opts.(*ECDSAOptions); ok {
+			sigEncoding = o.Encoding
+			selfVerify = o.SelfVerify
+			if hashFn == crypto.Hash(0) {
+				hashFn = crypto.SHA256
+			}
+		}
+
+		// Check that the digest is sized correctly.
+		expectedLen := hashFn.Size()
+		if len(digest) != expectedLen {
+			return nil, errInvalidDigest
+		}
+	}
+
+	r, s, v, err := k.SignRaw(rand, digest)
+	if err != nil {
+		return nil, err
+	}
+
+	if selfVerify {
+		// XXX/perf: It is faster to verify your own signature,
+		// since the private key is available.
+		ok := k.PublicKey().VerifyRaw(digest, r, s)
+		if !ok {
+			// This is really hard to test since it's hard to force faults.
+			return nil, errSigCheckFailed
+		}
+	}
+
+	switch sigEncoding {
+	case EncodingASN1:
+		return BuildASN1Signature(r, s), nil
+	case EncodingCompact:
+		return BuildCompactSignature(r, s), nil
+	case EncodingCompactRecoverable:
+		sig := BuildCompactSignature(r, s)
+		sig = append(sig, v)
+		return sig, nil
+	}
+
+	return nil, errInvalidEncoding
+}
+
+// SignRaw signs `digest` (which should be the result of hashing a larger
 // message) using the PrivateKey `k`, using the signing procedure
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // tuple `(r, s, recovery_id)`.
@@ -40,24 +145,8 @@ var (
 // Notes: If `rand` is nil, the [crypto/rand.Reader] will be used.
 // `s` will always be less than or equal to `n / 2`.  `recovery_id`
 // will always be in the range `[0, 3]`.
-func (k *PrivateKey) SignRaw(rand io.Reader, hash []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
-	return sign(rand, k, hash)
-}
-
-// SignASN1 signs `hash` (which should be the result of hashing a larger
-// message) using the PrivateKey `k`, using the signing procudure
-// as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
-// ASN.1 encoded signature.
-//
-// Note: If `rand` is nil, the [crypto/rand.Reader] will be used. `s`
-// will always be less than or equal to `n / 2`.
-func (k *PrivateKey) SignASN1(rand io.Reader, hash []byte) ([]byte, error) {
-	r, s, _, err := k.SignRaw(rand, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return BuildASN1Signature(r, s), nil
+func (k *PrivateKey) SignRaw(rand io.Reader, digest []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {
+	return sign(rand, k, digest)
 }
 
 // VerifyRaw verifies the `(r, s)` signature of `hash`, using the

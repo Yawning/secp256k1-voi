@@ -6,6 +6,7 @@ package secec
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -61,10 +62,12 @@ func TestSecec(t *testing.T) {
 		priv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey")
 
+		signer := crypto.Signer(priv)
+
 		pub := priv.PublicKey()
 
-		sig, err := priv.SignASN1(rand.Reader, testMessageHash)
-		require.NoError(t, err, "SignASN1")
+		sig, err := signer.Sign(rand.Reader, testMessageHash, nil)
+		require.NoError(t, err, "Sign")
 
 		ok := pub.VerifyASN1(testMessageHash, sig)
 		require.True(t, ok, "VerifyASN1")
@@ -82,17 +85,32 @@ func TestSecec(t *testing.T) {
 		ok = pub.VerifyASN1(testMessageHash[:5], sig)
 		require.False(t, ok, "VerifyASN1 - Truncated h")
 
-		r, s, _, err := priv.SignRaw(rand.Reader, testMessageHash)
+		// Test the various encodings.
+		r, s, v, err := priv.SignRaw(RFC6979SHA256(), testMessageHash)
 		require.NoError(t, err, "SignRaw")
 
 		ok = pub.VerifyRaw(testMessageHash, r, s)
 		require.True(t, ok, "VerifyRaw")
 
-		compactSig := BuildCompactSignature(r, s)
+		opts := &ECDSAOptions{
+			Hash:       crypto.SHA256,
+			Encoding:   EncodingCompact,
+			SelfVerify: true,
+		}
+		compactSig, err := priv.Sign(RFC6979SHA256(), testMessageHash, opts)
+		require.NoError(t, err, "Sign - Compact")
+		require.EqualValues(t, BuildCompactSignature(r, s), compactSig)
+
 		compR, compS, err := ParseCompactSignature(compactSig)
 		require.NoError(t, err, "ParseCompactSignature")
 		require.EqualValues(t, 1, r.Equal(compR))
 		require.EqualValues(t, 1, s.Equal(compS))
+
+		opts.Encoding = EncodingCompactRecoverable
+		recoverableSig, err := priv.Sign(RFC6979SHA256(), testMessageHash, opts)
+		require.NoError(t, err, "Sign - CompactRecoverable")
+		require.EqualValues(t, compactSig, recoverableSig[:CompactSignatureSize])
+		require.EqualValues(t, v, recoverableSig[CompactSignatureSize])
 
 		// Test some pathological cases.
 		var zero secp256k1.Scalar
@@ -101,9 +119,18 @@ func TestSecec(t *testing.T) {
 		err = verify(pub, testMessageHash, r, &zero)
 		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero s")
 
-		badSig, err := priv.SignASN1(rand.Reader, testMessageHash[:30])
-		require.Nil(t, badSig, "SignASN1 - Truncated hash")
-		require.ErrorIs(t, err, errInvalidDigest, "SignASN1 - Truncated hash")
+		badSig, err := priv.Sign(rand.Reader, testMessageHash[:30], nil)
+		require.Nil(t, badSig, "Sign - Truncated hash")
+		require.ErrorIs(t, err, errInvalidDigest, "Sign - Truncated hash")
+
+		badSig, err = priv.Sign(rand.Reader, testMessageHash, crypto.SHA512)
+		require.Nil(t, badSig, "Sign - Truncated hash")
+		require.ErrorIs(t, err, errInvalidDigest, "Sign - Truncated hash, opts")
+
+		opts.Encoding = EncodingCompactRecoverable + 1
+		badSig, err = priv.Sign(rand.Reader, testMessageHash, opts)
+		require.Nil(t, badSig, "Sign - Bad encoding")
+		require.ErrorIs(t, err, errInvalidEncoding, "Sign - Bad encoding")
 
 		_, _, err = ParseCompactSignature(compactSig[:15])
 		require.ErrorIs(t, err, errInvalidCompactSig, "ParseCompactSignature - truncated")
@@ -125,23 +152,30 @@ func TestSecec(t *testing.T) {
 		priv, err := GenerateKey()
 		require.NoError(t, err, "GenerateKey")
 
-		r, s, recoveryID, err := priv.SignRaw(rand.Reader, testMessageHash)
-		require.NoError(t, err, "SignRaw")
+		opts := &ECDSAOptions{
+			Encoding: EncodingCompactRecoverable,
+		}
+		sig, err := priv.Sign(rand.Reader, testMessageHash, opts)
+		require.NoError(t, err, "Sign")
 
-		q, err := RecoverPublicKey(testMessageHash, r, s, recoveryID)
+		r, s, err := ParseCompactSignature(sig[:CompactSignatureSize])
+		require.NoError(t, err, "ParseCompactSignature")
+		v := sig[CompactSignatureSize]
+
+		q, err := RecoverPublicKey(testMessageHash, r, s, v)
 		require.NoError(t, err, "RecoverPublicKey")
 
 		require.True(t, priv.PublicKey().Equal(q))
 
 		// Test some pathological cases.
 		var zero secp256k1.Scalar
-		_, err = RecoverPublicKey(testMessageHash, &zero, s, recoveryID)
+		_, err = RecoverPublicKey(testMessageHash, &zero, s, v)
 		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero r")
-		_, err = RecoverPublicKey(testMessageHash, r, &zero, recoveryID)
+		_, err = RecoverPublicKey(testMessageHash, r, &zero, v)
 		require.ErrorIs(t, err, errInvalidRorS, "RecoverPublicKey - Zero s")
-		_, err = RecoverPublicKey(testMessageHash, r, s, recoveryID+27)
+		_, err = RecoverPublicKey(testMessageHash, r, s, v+27)
 		require.Error(t, err, "RecoverPublicKey - Bad recovery ID")
-		_, err = RecoverPublicKey(testMessageHash[:31], r, s, recoveryID)
+		_, err = RecoverPublicKey(testMessageHash[:31], r, s, v)
 		require.ErrorIs(t, err, errInvalidDigest, "RecoverPublicKey - Truncated h")
 	})
 	t.Run("ECDSA/K", testEcdsaK)
@@ -219,7 +253,7 @@ func BenchmarkSecec(b *testing.B) {
 	randomPub := randomPriv2.PublicKey()
 	randomPublicBytes := randomPub.Bytes()
 
-	randomSig, err := randomPriv2.SignASN1(rand.Reader, testMessageHash)
+	randomSig, err := randomPriv2.Sign(rand.Reader, testMessageHash, nil)
 	require.NoError(b, err)
 
 	randomR, randomS, randomRecID, err := randomPriv2.SignRaw(rand.Reader, testMessageHash)
@@ -269,12 +303,23 @@ func BenchmarkSecec(b *testing.B) {
 				_, _ = randomPriv.ECDH(randomPub)
 			}
 		})
-		b.Run("SignASN1", func(b *testing.B) {
+		b.Run("Sign", func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				_, _ = randomPriv.SignASN1(rand.Reader, testMessageHash)
+				_, _ = randomPriv.Sign(rand.Reader, testMessageHash, nil)
+			}
+		})
+		b.Run("Sign/Paranoid", func(b *testing.B) {
+			opts := &ECDSAOptions{
+				SelfVerify: true,
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, _ = randomPriv.Sign(RFC6979SHA256(), testMessageHash, opts)
 			}
 		})
 	})

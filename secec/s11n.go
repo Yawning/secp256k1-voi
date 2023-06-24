@@ -15,8 +15,14 @@ import (
 	"gitlab.com/yawning/secp256k1-voi"
 )
 
-// CompactSignatureSize is the size of a compact signature in bytes.
-const CompactSignatureSize = 64
+const (
+	// CompactSignatureSize is the size of a compact signature in bytes.
+	CompactSignatureSize = 64
+
+	// CompactRecoverableSignatureSize is the size of a compact recoverable
+	// signature in bytes.
+	CompactRecoverableSignatureSize = 65
+)
 
 var (
 	oidEcPublicKey = stdasn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
@@ -140,7 +146,9 @@ func ParseCompactSignature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, e
 // BuildCompactSignature serializes `(r, s)` into a "compact" `[R | S]`
 // signature.
 func BuildCompactSignature(r, s *secp256k1.Scalar) []byte {
-	dst := make([]byte, 0, CompactSignatureSize)
+	// Allocates assuming `[R | S | V]`, so that later appending `v`
+	// doesn't cause a realloc.
+	dst := make([]byte, 0, CompactRecoverableSignatureSize)
 	dst = append(dst, r.Bytes()...)
 	dst = append(dst, s.Bytes()...)
 

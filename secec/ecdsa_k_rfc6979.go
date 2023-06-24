@@ -24,7 +24,7 @@ func (rd sentinelReaderRFC6979) Read(_ []byte) (int, error) {
 }
 
 // RFC6979SHA256 returns an [io.Reader] that will make the `Sign`
-// and `SignASN1` ECDSA routines return deterministic signatures
+// and `SignRaw` ECDSA routines return deterministic signatures
 // with the nonce generation algorithm as specified in RFC 6979,
 // using SHA-256 as the hash function, when strict output
 // compatibility with other implementations is required.
@@ -34,7 +34,7 @@ func (rd sentinelReaderRFC6979) Read(_ []byte) (int, error) {
 //
 // WARNING: This returns a non-functional placeholder reader that
 // will panic if actually used.  The returned reader is incompatible
-// with `SignSchnorr`.
+// with non-ECDSA use cases.
 func RFC6979SHA256() io.Reader {
 	return readerRFC6979SHA256
 }
