@@ -92,6 +92,25 @@ func (s *Scalar) Square(a *Scalar) *Scalar {
 	return s
 }
 
+// Sum sets `s = vec[0] + ... + vec[n]` and returns `s`.
+func (s *Scalar) Sum(vec ...*Scalar) *Scalar {
+	sum := NewScalar()
+	for _, v := range vec {
+		sum.Add(sum, v)
+	}
+	return s.Set(sum)
+}
+
+// Product sets `s = vec[0] * ... * vec[n]` and returns `s`.  If `vec`
+// is empty, `s` will be set to `1`.
+func (s *Scalar) Product(vec ...*Scalar) *Scalar {
+	product := NewScalar().One()
+	for _, v := range vec {
+		product.Multiply(product, v)
+	}
+	return s.Set(product)
+}
+
 // Set sets `s = a` and returns `s`.
 func (s *Scalar) Set(a *Scalar) *Scalar {
 	copy(s.m[:], a.m[:])

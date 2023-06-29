@@ -53,6 +53,26 @@ func TestScalar(t *testing.T) {
 		}
 	})
 
+	t.Run("Sum", func(t *testing.T) {
+		// Test the empty case.
+		s := NewScalar().Sum()
+		require.EqualValues(t, 1, s.IsZero())
+
+		scThree := NewScalarFromUint64(3)
+		s.Sum(scOne, scOne, scOne)
+		require.EqualValues(t, 1, scThree.Equal(s))
+	})
+
+	t.Run("Product", func(t *testing.T) {
+		// Test the empty case.
+		s := NewScalar().Product()
+		require.EqualValues(t, 1, scOne.Equal(s))
+
+		scTwo, scThree, scSix := NewScalarFromUint64(2), NewScalarFromUint64(3), NewScalarFromUint64(6)
+		s.Product(scTwo, scThree)
+		require.EqualValues(t, 1, scSix.Equal(s))
+	})
+
 	t.Run("IsGreaterThanHalfN", func(t *testing.T) {
 		// N/2 = 7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0
 		leqHalfN := []*Scalar{
