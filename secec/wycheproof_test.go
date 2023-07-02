@@ -397,7 +397,7 @@ func (tc *SignatureTestCase) Run(t *testing.T, publicKey *PublicKey, tg *Signatu
 	require.False(t, hasFlagMustRejectEarly, "failed to reject bad/exotic encoding: %+v", tc.Flags)
 	require.NoError(t, err, "parseASN1Signature: %+v", tc.Flags)
 
-	err = verify(publicKey, hBytes, r, s)
+	err = verify(nil, publicKey, hBytes, r, s)
 	splitSigOk := nil == err // Need the un-fixed up result to cross-check the recovery.
 	sigOk = splitSigOk
 	require.EqualValues(t, !mustFail, sigOk, "split signature verification: %+v", tc.Flags)

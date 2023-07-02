@@ -117,9 +117,9 @@ func TestSecec(t *testing.T) {
 
 		// Test some pathological cases.
 		var zero secp256k1.Scalar
-		err = verify(pub, testMessageHash, &zero, s)
+		err = verify(nil, pub, testMessageHash, &zero, s)
 		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero r")
-		err = verify(pub, testMessageHash, r, &zero)
+		err = verify(nil, pub, testMessageHash, r, &zero)
 		require.ErrorIs(t, err, errInvalidRorS, "verify - Zero s")
 
 		badSig, err := priv.Sign(rand.Reader, testMessageHash[:30], nil)
@@ -176,7 +176,7 @@ func TestSecec(t *testing.T) {
 		tmp := bytes.Clone(sig)
 		tmp[64] = 27 // Fuck your unregistered securities.
 		ok = pub.Verify(testMessageHash, tmp, opts)
-		require.False(t, ok, "Verify - Bad sig")
+		require.False(t, ok, "Verify - Bad sig (Rec ID)")
 
 		r, s, v, err := ParseCompactRecoverableSignature(sig)
 		require.NoError(t, err, "ParseCompactRecoverableSignature")

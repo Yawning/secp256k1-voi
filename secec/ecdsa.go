@@ -94,7 +94,6 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 	sigEncoding := EncodingASN1
 	selfVerify := false // XXX: Should this default to true?
 
-	var verOpts *ECDSAOptions
 	if opts != nil {
 		hashFn := opts.HashFunc()
 		// Override the defaults.
@@ -104,7 +103,6 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 			if hashFn == crypto.Hash(0) {
 				hashFn = crypto.SHA256
 			}
-			verOpts = o
 		}
 
 		// Check that the digest is sized correctly.
@@ -119,6 +117,23 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 		return nil, err
 	}
 
+	if selfVerify {
+		// Failures here are really hard to test since it's hard to
+		// force faults.
+		if err = verify(k, nil, digest, r, s); err != nil {
+			return nil, errSigCheckFailed
+		}
+
+		// It is annoying/expensive to check that `v` is correct because
+		// we do not know if we negated s when we signed.  Just do the
+		// light-weight thing and check that it is within the correct
+		// range.
+		const vMask = 0x03
+		if v&vMask != v {
+			return nil, errSigCheckFailed
+		}
+	}
+
 	var sig []byte
 	switch sigEncoding {
 	case EncodingASN1:
@@ -130,16 +145,6 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 	default:
 		// "Why, yes, this is after SignRaw. Don't do that then."
 		return nil, errInvalidEncoding
-	}
-
-	if selfVerify {
-		// XXX/perf: It is faster to verify your own signature,
-		// since the private key is available.
-		ok := k.PublicKey().Verify(digest, sig, verOpts)
-		if !ok {
-			// This is really hard to test since it's hard to force faults.
-			return nil, errSigCheckFailed
-		}
 	}
 
 	return sig, nil
@@ -227,7 +232,7 @@ func (k *PublicKey) Verify(digest, sig []byte, opts *ECDSAOptions) bool {
 // SEC 1, Version 2.0, Section 4.1.4.  Its return value records
 // whether the signature is valid.
 func (k *PublicKey) VerifyRaw(digest []byte, r, s *secp256k1.Scalar) bool {
-	return nil == verify(k, digest, r, s)
+	return nil == verify(nil, k, digest, r, s)
 }
 
 // RecoverPublicKey recovers the public key from the signature
@@ -384,7 +389,7 @@ func sign(rand io.Reader, d *PrivateKey, hBytes []byte) (*secp256k1.Scalar, *sec
 	return r, s, recoveryID, nil
 }
 
-func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
+func verify(d *PrivateKey, q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	// 1. If r and s are not both integers in the interval [1, n − 1],
 	// output “invalid” and stop.
 	//
@@ -424,10 +429,24 @@ func verify(q *PublicKey, hBytes []byte, r, s *secp256k1.Scalar) error {
 	u1 := secp256k1.NewScalar().Multiply(e, sInv)
 	u2 := secp256k1.NewScalar().Multiply(r, sInv)
 
-	// 5. Compute: R = (xR, yR) = u1 * G + u2 * QU.
-	// If R = O, output “invalid” and stop.
+	R := secp256k1.NewIdentityPoint()
+	switch d {
+	case nil:
+		// 5. Compute: R = (xR, yR) = u1 * G + u2 * QU.
+		R.DoubleScalarMultBasepointVartime(u1, u2, q.point)
+	default:
+		// 4.1.5 Alternative Verifying Operation
+		//
+		// All verification steps are the same, except that in Step 5,
+		// the verifier instead computes
+		//
+		// R = (xR, yR) = (u1 + u2 * d) * G
+		u2.Multiply(u2, d.scalar)
+		u1.Add(u1, u2)
+		R.ScalarBaseMult(u1)
+	}
 
-	R := secp256k1.NewIdentityPoint().DoubleScalarMultBasepointVartime(u1, u2, q.point)
+	// If R = O, output “invalid” and stop.
 	if R.IsIdentity() != 0 {
 		return errRIsInfinity
 	}
