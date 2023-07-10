@@ -201,7 +201,7 @@ func (v *Point) mulBeta(p *Point) *Point {
 // scalarMultVartimeGLV sets `v = s * p`, and returns `v` in variable time.
 func (v *Point) scalarMultVartimeGLV(s *Scalar, p *Point) *Point {
 	pee := NewPointFrom(p) // Note: Checks p is valid.
-	peePrime := newRcvr().mulBeta(p)
+	peePrime := newMulBeta(p)
 
 	// Split the scalar.
 	//
@@ -255,7 +255,7 @@ func (v *Point) scalarMultVartimeGLV(s *Scalar, p *Point) *Point {
 // ScalarMult sets `v = s * p`, and returns `v`.
 func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 	pee := NewPointFrom(p) // Note: Checks p is valid.
-	peePrime := newRcvr().mulBeta(p)
+	peePrime := newMulBeta(p)
 
 	k1, k2 := s.splitGLV()
 
@@ -305,7 +305,7 @@ func (v *Point) ScalarMult(s *Scalar, p *Point) *Point {
 // `v` in variable time, where `G` is the generator.
 func (v *Point) DoubleScalarMultBasepointVartime(u1, u2 *Scalar, p *Point) *Point {
 	// To the best of my knowledge, doing things this way is faster than
-	// Shamir-Strauss, given our scalar-basepoint multiply implementation,
+	// Straus-Shamir, given our scalar-basepoint multiply implementation,
 	// especially if the variable-base multiply is well optimized.
 	//
 	// This routine is the most performance critical as it is the core
@@ -313,4 +313,8 @@ func (v *Point) DoubleScalarMultBasepointVartime(u1, u2 *Scalar, p *Point) *Poin
 	u1g := newRcvr().scalarBaseMultVartime(u1)
 	u2p := newRcvr().scalarMultVartimeGLV(u2, p)
 	return v.Add(u1g, u2p)
+}
+
+func newMulBeta(p *Point) *Point {
+	return newRcvr().mulBeta(p)
 }
