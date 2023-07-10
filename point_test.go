@@ -27,6 +27,7 @@ func TestPoint(t *testing.T) {
 	t.Run("Double", testPointDouble)
 	t.Run("Subtract", testPointSubtract)
 	t.Run("ScalarMult", testPointScalarMult)
+	testPointMultiScalarMult(t)
 	t.Run("ScalarBaseMult", testPointScalarBaseMult)
 	t.Run("DoubleScalarMultBasepointVartime", testPointDoubleScalarMultBasepointVartime)
 
@@ -506,6 +507,7 @@ func BenchmarkPoint(b *testing.B) {
 			q.scalarBaseMultVartime(&s)
 		}
 	})
+	benchPointMultiScalarMult(b)
 	b.Run("DoubleScalarMultBasepointVartime", func(b *testing.B) {
 		var s1, s2 Scalar
 		q := NewGeneratorPoint()

@@ -56,7 +56,8 @@ is not "easy").
 languages, and totally, utterly hopeless in Go.
 - SIMD is used to accelerate the constant time table lookups.  Building
 with `purego` disables the use of assembly.  It is almost, but not
-quite, not even worth having variable-time variants of the multiplies.
+quite, not even worth having variable-time variants of the multiplies
+on amd64 due to the vectorized table lookup.
 - The fiat-crypto ToBytes/FromBytes routines are not used due to our
 need to handle non-canonical encodings, and the fact that fiat expects
 and outputs little-endian, while big-endian is customary for this curve.
@@ -87,6 +88,7 @@ Potential improvements:
 - Sit and wait for Go 1.21 to come out, it seems to do better.
 - wNAF based point multiplication is probably a gain.
 - Go and add "multiply a field element by a small integer" to fiat.
+- Pippenger's multi-scalar multiply would be better in certain cases.
 
 [1]: https://github.com/mit-plv/fiat-crypto
 [2]: https://github.com/mmcloughlin/addchain
