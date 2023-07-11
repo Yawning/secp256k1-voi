@@ -230,8 +230,8 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 	// Note/yawning: k contains a pre-deserialized point, deserialization
 	// process is equivalent to lift_x.
 
-	// Let r = int(sig[0:32]); fail if r ≥ p.
-	// Let s = int(sig[32:64]); fail if s ≥ n.
+	// Let r = int(sig[0:32]); fail if r >= p.
+	// Let s = int(sig[32:64]); fail if s >= n.
 	// Let e = int(hashBIP0340/challenge(bytes(r) || bytes(P) || m)) mod n.
 
 	ok, s, e, sigRXBytes := parseSchnorrSignature(k.xBytes, msg, sig)
@@ -239,14 +239,14 @@ func (k *SchnorrPublicKey) Verify(msg, sig []byte) bool {
 		return false
 	}
 
-	// Let R = s⋅G - e⋅P.
+	// Let R = s*G - e*P.
 
 	e.Negate(e)
 	R := secp256k1.NewIdentityPoint().DoubleScalarMultBasepointVartime(s, e, k.point)
 
 	// Fail if is_infinite(R).
 	// Fail if not has_even_y(R).
-	// Fail if x(R) ≠ r.
+	// Fail if x(R) != r.
 	// Return success iff no failure occurred before reaching this point.
 
 	return verifySchnorrSignatureR(sigRXBytes, R)
@@ -323,8 +323,8 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 	// The algorithm Sign(sk, m) is defined as:
 
 	// Let d' = int(sk)
-	// Fail if d' = 0 or d' ≥ n
-	// Let P = d'⋅G
+	// Fail if d' = 0 or d' >= n
+	// Let P = d'*G
 	// Let d = d' if has_even_y(P), otherwise let d = n - d' .
 	//
 	// Note/yawning: sk is a pre-deserialized private key, that is
@@ -354,7 +354,7 @@ func signSchnorr(auxRand *[schnorrEntropySize]byte, sk *SchnorrPrivateKey, msg [
 		return nil, errKPrimeIsZero
 	}
 
-	// Let R = k'⋅G.
+	// Let R = k'*G.
 
 	R := secp256k1.NewIdentityPoint().ScalarBaseMult(kPrime)
 	rXBytes, rYIsOdd := secp256k1.SplitUncompressedPoint(R.UncompressedBytes())
@@ -405,7 +405,7 @@ func verifySchnorrSelf(d *secp256k1.Scalar, pkXBytes, msg, sig []byte) bool {
 		return false
 	}
 
-	// Let R = (s - d⋅e)⋅G.
+	// Let R = (s - d*e)*G.
 	//
 	// Note/yawning: d is the private key (or it's negation), so deriving
 	// R needs to be done in constant-time.
@@ -422,7 +422,7 @@ func parseSchnorrSignature(pkXBytes, msg, sig []byte) (bool, *secp256k1.Scalar, 
 		return false, nil, nil, nil
 	}
 
-	// Let r = int(sig[0:32]); fail if r ≥ p.
+	// Let r = int(sig[0:32]); fail if r >= p.
 	//
 	// Note/yawning: If one were to want to do this without using the
 	// internal field package, the point decompression routine also
@@ -433,7 +433,7 @@ func parseSchnorrSignature(pkXBytes, msg, sig []byte) (bool, *secp256k1.Scalar, 
 		return false, nil, nil, nil
 	}
 
-	// Let s = int(sig[32:64]); fail if s ≥ n.
+	// Let s = int(sig[32:64]); fail if s >= n.
 
 	s, err := secp256k1.NewScalarFromCanonicalBytes((*[secp256k1.ScalarSize]byte)(sig[32:64]))
 	if err != nil {
@@ -466,7 +466,7 @@ func verifySchnorrSignatureR(sigRXBytes []byte, R *secp256k1.Point) bool { //nol
 		return false
 	}
 
-	// Fail if x(R) ≠ r.
+	// Fail if x(R) != r.
 	//
 	// Note/yawning: Vartime compare, because this is verification.
 
