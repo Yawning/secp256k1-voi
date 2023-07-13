@@ -11,9 +11,8 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/sha3"
-
 	"gitlab.com/yawning/secp256k1-voi"
+	"gitlab.com/yawning/tuplehash"
 )
 
 const (
@@ -494,7 +493,7 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, e *secp256
 	// with the private key and message digest, and making
 	// signatures fully deterministic.
 	//
-	// We go one step further, and use cSHAKE256 to mix
+	// We go one step further, and use TupleHashXOF128 to mix
 	// the private key, 256-bits of entropy, and the message
 	// digest.
 	//
@@ -514,7 +513,7 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, e *secp256
 		return nil, errors.Join(errEntropySource, err)
 	}
 
-	xof := sha3.NewCShake256(nil, []byte("Honorary Debian/Sony RNG mitigation:"+ctx))
+	xof := tuplehash.NewTupleHashXOF128([]byte("Honorary Debian/Sony RNG mitigation:" + ctx))
 	_, _ = xof.Write(k.scalar.Bytes())
 	_, _ = xof.Write(tmp[:])
 	_, _ = xof.Write(e.Bytes())
