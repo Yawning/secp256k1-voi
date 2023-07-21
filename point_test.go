@@ -428,8 +428,8 @@ func BenchmarkPoint(b *testing.B) {
 		}
 	})
 	b.Run("GLV/ScalarMult", func(b *testing.B) {
-		s := NewScalarFromUint64(42069)
 		q := NewGeneratorPoint()
+		s := NewScalar().DebugMustRandomizeNonZero()
 		b.ReportAllocs()
 		b.ResetTimer()
 
@@ -438,17 +438,20 @@ func BenchmarkPoint(b *testing.B) {
 		}
 	})
 	b.Run("GLV/ScalarMultVartime", func(b *testing.B) {
-		var s Scalar
 		q := NewGeneratorPoint()
+		s := NewScalar()
 		b.ReportAllocs()
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
+			// Continually re-randomize the scalar, as execution time
+			// varies depending on the value and we want the typical
+			// time.
 			b.StopTimer()
 			s.DebugMustRandomizeNonZero()
 			b.StartTimer()
 
-			q.scalarMultVartimeGLV(&s, q)
+			q.scalarMultVartimeGLV(s, q)
 		}
 	})
 
