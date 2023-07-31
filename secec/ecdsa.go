@@ -38,7 +38,7 @@ var (
 type SignatureEncoding int
 
 const (
-	// EncodingASN1 is an ASN.1 `SEQUENCE { r INTEGER, s INTEGER}`.
+	// EncodingASN1 is an ASN.1 `SEQUENCE { r INTEGER, s INTEGER }`.
 	EncodingASN1 SignatureEncoding = iota
 	// EncodingCompact is `[R | S]`, with the scalars encoded as
 	// 32-byte big-endian integers.
@@ -86,7 +86,7 @@ func (opt *ECDSAOptions) HashFunc() crypto.Hash {
 // byte-encoded signature.  If `opts` is not a `*ECDSAOptions` the
 // output encoding will default to `EncodingASN1`.
 //
-// Notes: If `rand` is nil, the [crypto/rand.Reader] will be used.
+// Notes: If `rand` is nil, [crypto/rand.Reader] will be used.
 // `s` will always be less than or equal to `n / 2`.
 func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	// Assume default parameters.
@@ -154,7 +154,7 @@ func (k *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 // as specified in SEC 1, Version 2.0, Section 4.1.3.  It returns the
 // tuple `(r, s, recovery_id)`.
 //
-// Notes: If `rand` is nil, the [crypto/rand.Reader] will be used.
+// Notes: If `rand` is nil, [crypto/rand.Reader] will be used.
 // `s` will always be less than or equal to `n / 2`.  `recovery_id`
 // will always be in the range `[0, 3]`.
 func (k *PrivateKey) SignRaw(rand io.Reader, digest []byte) (*secp256k1.Scalar, *secp256k1.Scalar, byte, error) {

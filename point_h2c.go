@@ -10,21 +10,24 @@ import (
 )
 
 // SetUniformBytes sets `v = map_to_curve(OS2IP(src) mod p)`, where
-// `src` MUST be have a length in the range `[32,64]`-bytes, and
-// returns `v`.  If called with exactly 48-bytes of data, this can
-// be used to implement `encode_to_curve` and `hash_to_curve`.
-// With a cryptographically insignificant probability, the result MAY
-// be the point at infinity.
+// `src` MUST have a length in the range `[32,64]`-bytes, and returns
+// `v`.
+//
+// If called with exactly 48-bytes of data, this can be used to
+// implement `encode_to_curve` and `hash_to_curve`, per "Hashing to
+// Elliptic Curves".  With a cryptographically insignificant probability,
+// the result may be the point at infinity.
 //
 // Most users SHOULD use a higher-level `encode_to_curve` or
 // `hash_to_curve` implementation instead.
 func (v *Point) SetUniformBytes(src []byte) *Point {
-	// The IETF draft notes that there is an optimization opportunity
-	// for the random oracle suites to save a call to `iso_map` by
+	// The spec notes that there is an optimization opportunity for
+	// the random oracle suites to save a call to `iso_map` by
 	// doing the point addition in E'.
 	//
-	// This seems marginal at best, and it 100% is not worth carrying
-	// around the generic (non-specialized) point addition formula.
+	// We will forgo this, as while inversion is expensive, this
+	// will neccecitate implementing additional point addition formula
+	// that is only used for this routine.
 
 	u := field.NewElement().SetWideBytes(src)
 

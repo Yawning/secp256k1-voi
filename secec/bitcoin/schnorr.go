@@ -107,7 +107,7 @@ func (k *SchnorrPrivateKey) PublicKey() *SchnorrPublicKey {
 // procedure as specified in BIP-0340.  It returns the byte-encoded
 // signature.
 //
-// Note: If `rand` is nil, the [crypto/rand.Reader] will be used.
+// Note: If `rand` is nil, [crypto/rand.Reader] will be used.
 func (k *SchnorrPrivateKey) Sign(rand io.Reader, msg []byte, _ crypto.SignerOpts) ([]byte, error) {
 	// BIP-0340 cautions about how deterministic nonce creation a la
 	// RFC6979 can lead to key compromise if the same key is shared

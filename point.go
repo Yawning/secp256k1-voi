@@ -177,7 +177,7 @@ func NewGeneratorPoint() *Point {
 	return newRcvr().Generator()
 }
 
-// NewIdentityPoint returns a new Point set to the identity (point at infinity).
+// NewIdentityPoint returns a new Point set to the identity element (point at infinity).
 func NewIdentityPoint() *Point {
 	// Note: This doesn't use p.Identity(), because x and z are guaranteed
 	// to already be 0, and it makes escape analysis upset.
@@ -191,7 +191,7 @@ func NewIdentityPoint() *Point {
 	return p
 }
 
-// NewPointFrom creates a new Point from another.
+// NewPointFrom returns a new Point set to an existing Point.
 func NewPointFrom(p *Point) *Point {
 	assertPointsValid(p)
 

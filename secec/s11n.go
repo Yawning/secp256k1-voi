@@ -79,7 +79,7 @@ func ParseASN1PublicKey(data []byte) (*PublicKey, error) {
 //
 // Note: The signature MUST be `SEQUENCE { r INTEGER, s INTEGER }`,
 // as in encoded as a `ECDSA-Sig-Value`, WITHOUT the optional `a` and
-// `y` fields.  Either `r` or `s` being `0` is treated as an error.
+// `y` fields.  Both `r` and `s` MUST be in the range `[1, n)`.
 func ParseASN1Signature(data []byte) (*secp256k1.Scalar, *secp256k1.Scalar, error) {
 	var (
 		inner          cryptobyte.String

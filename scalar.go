@@ -231,7 +231,7 @@ func NewScalar() *Scalar {
 	return &Scalar{}
 }
 
-// NewScalarFrom creates a new Scalar from another.
+// NewScalarFrom returns a new Scalar set to an existing Scalar.
 func NewScalarFrom(other *Scalar) *Scalar {
 	return NewScalar().Set(other)
 }

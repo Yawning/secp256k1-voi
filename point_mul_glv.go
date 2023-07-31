@@ -177,8 +177,9 @@ func (s *Scalar) mulGFlooredDiv(k, g *Scalar) *Scalar {
 	// any actual shifting involved, only discarding the
 	// 6 least-significant limbs.
 	//
-	// The unchecked set is fine here since, the only check
-	// is to see if the scalar is fully reduced.
+	// The unchecked set is fine here since, the check is
+	// to see if the scalar is fully reduced, which is always
+	// the case when doing a 128-bit set.
 
 	shouldAdd := (c5 >> 63) & 1
 	c6, u = bits.Add64(c6, shouldAdd, 0)
