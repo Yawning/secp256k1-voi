@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"io"
 
-	"gitlab.com/yawning/secp256k1-voi"
 	"gitlab.com/yawning/tuplehash"
+
+	"gitlab.com/yawning/secp256k1-voi"
 )
 
 const (
