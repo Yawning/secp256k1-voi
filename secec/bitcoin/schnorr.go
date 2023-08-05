@@ -129,7 +129,7 @@ func (k *SchnorrPrivateKey) Sign(rand io.Reader, msg []byte, _ crypto.SignerOpts
 
 	var auxEntropy [schnorrEntropySize]byte
 	if _, err := io.ReadFull(rand, auxEntropy[:]); err != nil {
-		return nil, errors.Join(errEntropySource, err)
+		return nil, fmt.Errorf("%w: %w", errEntropySource, err)
 	}
 
 	return signSchnorr(&auxEntropy, k, msg)

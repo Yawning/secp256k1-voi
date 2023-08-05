@@ -511,7 +511,7 @@ func mitigateDebianAndSony(rand io.Reader, ctx string, k *PrivateKey, e *secp256
 
 	var tmp [wantedEntropyBytes]byte
 	if _, err := io.ReadFull(rand, tmp[:]); err != nil {
-		return nil, errors.Join(errEntropySource, err)
+		return nil, fmt.Errorf("%w: %w", errEntropySource, err)
 	}
 
 	xof := tuplehash.NewTupleHashXOF128([]byte("Honorary Debian/Sony RNG mitigation:" + ctx))
@@ -532,7 +532,7 @@ func sampleRandomScalar(rand io.Reader) (*secp256k1.Scalar, error) {
 	)
 	for i := 0; i < maxScalarResamples; i++ {
 		if _, err := io.ReadFull(rand, tmp[:]); err != nil {
-			return nil, errors.Join(errEntropySource, err)
+			return nil, fmt.Errorf("%w: %w", errEntropySource, err)
 		}
 
 		_, didReduce := s.SetBytes(&tmp)
