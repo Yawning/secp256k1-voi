@@ -333,6 +333,14 @@ func BenchmarkSecec(b *testing.B) {
 				_, _ = randomPriv.Sign(rand.Reader, testMessageHash, nil)
 			}
 		})
+		b.Run("Sign/RFC6979SHA256", func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_, _ = randomPriv.Sign(RFC6979SHA256(), testMessageHash, nil)
+			}
+		})
 		b.Run("Sign/Paranoid", func(b *testing.B) {
 			opts := &ECDSAOptions{
 				SelfVerify: true,
@@ -341,7 +349,7 @@ func BenchmarkSecec(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				_, _ = randomPriv.Sign(RFC6979SHA256(), testMessageHash, opts)
+				_, _ = randomPriv.Sign(rand.Reader, testMessageHash, opts)
 			}
 		})
 	})
