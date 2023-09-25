@@ -33,7 +33,9 @@ func expandMessageXMD(out []byte, hFunc crypto.Hash, domainSeparator, message []
 
 	// 0. Ensure parameters are sensible.
 	//
-	// The draft allows for 0-length output, we do not, because that is stupid.
+	// The RFC allows for 0-length output, we do not, because that is stupid.
+	// This does not cause compatibility issues, as `len(out)` is always
+	// `ell * 2`.
 	if bInBytes < 2*kay/8 {
 		return errInvalidDigestSize
 	}
@@ -41,7 +43,7 @@ func expandMessageXMD(out []byte, hFunc crypto.Hash, domainSeparator, message []
 		return errInvalidOutputSize
 	}
 
-	// 5.4.3 Using DSTs longer than 255 bytes.
+	// 5.3.3 Using DSTs longer than 255 bytes.
 	DST := domainSeparator
 	lenDST := len(domainSeparator)
 	switch {

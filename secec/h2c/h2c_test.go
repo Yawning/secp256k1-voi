@@ -63,11 +63,11 @@ func TestH2C(t *testing.T) {
 		err = expandMessageXMD(out[:], crypto.SHA256, []byte{}, []byte("zero DST"))
 		require.ErrorIs(t, err, errInvalidDomainSep, "expandMessageXMD - 0 length dst")
 
-		// Our implementation rejects 0-length output, even if the draft does not.
+		// Our implementation rejects 0-length output, even if the RFC does not.
 		err = expandMessageXMD(out[:0], crypto.SHA256, dst, []byte("zero output"))
 		require.ErrorIs(t, err, errInvalidOutputSize, "expandMessageXMD - 0 length output")
 
-		// The draft calls for rejecting outputs larger than > 2^16-1.
+		// The RFC calls for rejecting outputs larger than > 2^16-1.
 		// Though, this case can never happen (see the ell tests).
 		err = expandMessageXMD(make([]byte, 65536), crypto.SHA256, dst, []byte("oversize output"))
 		require.ErrorIs(t, err, errInvalidOutputSize, "expandMessageXMD - oversize output")

@@ -38,7 +38,7 @@ and scalars.
 - ECDSA with RFC 6979 + SHA256 for compatibility.
 - ECDSA public key recovery per the various shitcoins.
 - Schnorr signatures per BIP-0340.
-- Hash to curve per draft-irtf-cfrg-hash-to-curve-16.
+- Hash to curve per RFC 9380.
 
 #### Notes
 

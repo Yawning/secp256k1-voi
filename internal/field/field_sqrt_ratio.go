@@ -6,7 +6,7 @@
 
 package field
 
-// c2 = sqrt(-Z)
+// c2 = sqrt(-Z) (value from sage)
 var feC2 = NewElementFromCanonicalHex("0x31fdf302724013e57ad13fb38f842afeec184f00a74789dd286729c8303c4a59")
 
 // Sqrt sets `fe = Sqrt(a)`, and returns 1 iff the square root exists.
@@ -23,7 +23,7 @@ func (fe *Element) Sqrt(a *Element) (*Element, uint64) {
 }
 
 func (z *Element) SqrtRatio(u, v *Element) (*Element, uint64) {
-	// From Hashing to Elliptic Curves (draft-irtf-cfrg-hash-to-curve-16)
+	// From Hashing to Elliptic Curves (RFC 9380)
 
 	// F.2.1.2.  optimized sqrt_ratio for q = 3 mod 4
 

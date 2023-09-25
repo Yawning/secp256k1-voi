@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-// Package h2c implements the "Hashing to Elliptic Curves" IETF draft.
+// Package h2c implements Hashing to Elliptic Curves as specified in RFC 9380.
 package h2c
 
 import (
@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ell = 48  // L = ceil((ceil(log2(2^255-19)) + k) / 8)
+	ell = 48  // L = ceil((ceil(log2(p)) + k) / 8)
 	kay = 128 // k = target security level in bits
 
 	encodeToCurveSize = ell
